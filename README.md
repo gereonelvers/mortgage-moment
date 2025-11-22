@@ -89,6 +89,7 @@ See [`.env.example`](./.env.example) for complete list.
 ## Devpost
 
 For further information and explanation of the project, please visit the [Devpost entry](https://devpost.com/software/mortgage-moment).
+
 ---
 
 Made with ❤️ for potential homebuyers everywhere
