@@ -127,11 +127,14 @@ app.get('/api/properties', async (req, res) => {
         }
 
         // 2. Fallback to München if no location or no results
-        if (apiResults.length === 0) {
+        if (apiResults.length === 0 && location !== "München") {
+            console.log("No results for requested location. Trying fallback to München via API...");
             const data = await fetchFromApi("München");
-            if (data && data.results) {
+            if (data && data.results && data.results.length > 0) {
                 apiResults = data.results;
                 total = data.total;
+            } else {
+                console.log("München API fallback returned no results. Will use local data.");
             }
         }
 
@@ -157,6 +160,7 @@ app.get('/api/properties', async (req, res) => {
             }));
         } else {
             // Fallback to local properties
+            console.log("Using local properties.json fallback.");
             let results = properties;
             // Filtering
             if (maxPrice) results = results.filter(p => p.p <= parseInt(maxPrice));
