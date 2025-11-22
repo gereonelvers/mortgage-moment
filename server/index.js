@@ -106,8 +106,7 @@ app.get('/api/properties', async (req, res) => {
                     "size": limitVal,
                     "geoSearches": {
                         "geoSearchQuery": searchLocation,
-                        "geoSearchType": "town",
-                        "region": "Bayern"
+                        "geoSearchType": "town"
                     }
                 }, { headers: { 'Content-Type': 'application/json' } });
                 return response.data;
@@ -346,7 +345,7 @@ app.get('/api/properties', async (req, res) => {
     }
 });
 
-const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage }) => {
+const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage, coachData, isVoiceCall }) => {
     return `
 <!DOCTYPE html>
 <html>
@@ -363,6 +362,8 @@ const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAdd
         .property-card { background-color: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; padding: 20px; margin-top: 20px; }
         .property-image { width: 100%; height: 200px; object-fit: cover; border-radius: 4px; margin-bottom: 15px; background-color: #eee; }
         .price { color: #27ae60; font-size: 20px; font-weight: bold; margin: 10px 0; }
+        .coach-section { margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
+        .coach-card { padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #ccc; background: #f9f9f9; }
         .footer { background-color: #f4f4f4; padding: 20px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0; }
         .btn { display: inline-block; background-color: #3498db; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 4px; margin-top: 20px; }
     </style>
@@ -374,7 +375,11 @@ const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAdd
         </div>
         <div class="content">
             <p>Hello ${userName || 'there'},</p>
-            <p>Thank you for your interest! We have received your inquiry regarding the following property:</p>
+            
+            ${isVoiceCall ?
+            `<p>It was great talking to you! Here is the summary of the property we discussed and the affordability plan we worked out.</p>` :
+            `<p>Thank you for your interest! We have received your inquiry regarding the following property:</p>`
+        }
             
             <div class="property-card">
                 ${propertyImage ? `<img src="${propertyImage}" alt="${propertyTitle}" class="property-image" />` : ''}
@@ -382,6 +387,32 @@ const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAdd
                 <p style="margin-bottom: 5px;">${propertyAddress}</p>
                 <div class="price">€${propertyPrice}</div>
             </div>
+
+            ${coachData ? `
+                <div class="coach-section">
+                    <h2 style="color: #2c3e50;">Your Affordability Plan 🏠</h2>
+                    
+                    <div class="coach-card" style="border-left-color: #e74c3c; background: #fff5f5;">
+                        <h3 style="margin-top: 0; color: #c0392b;">The Reality Check</h3>
+                        <p>Shortfall: <strong>€${coachData.gap?.toLocaleString()}</strong></p>
+                        <p style="font-size: 0.9em; color: #666;">Future Price (5y): €${coachData.futurePrice5Years?.toLocaleString()}</p>
+                    </div>
+
+                    <div class="coach-card" style="border-left-color: #3498db; background: #f0f9ff;">
+                        <h3 style="margin-top: 0; color: #2980b9;">Plan A: Boost Income</h3>
+                        <p>Required Net Income: <strong>€${coachData.requiredIncome?.toLocaleString()}</strong> / month</p>
+                        <p style="font-size: 0.9em; color: #666;">Increase needed: €${coachData.incomeGap?.toLocaleString()}</p>
+                    </div>
+
+                    <div class="coach-card" style="border-left-color: #27ae60; background: #f0fff4;">
+                        <h3 style="margin-top: 0; color: #27ae60;">Plan B: For Your Children</h3>
+                        <p>Recommended Investment: <strong>€${coachData.monthlySavingsForChildren?.toLocaleString()}</strong> / month</p>
+                        <p style="font-size: 0.9em; color: #666;">Projected (18y): €${coachData.projectedChildSavings?.toLocaleString()}</p>
+                        ${coachData.projectedChildSavings < coachData.targetDownPayment ?
+                `<p style="font-size: 0.8em; color: #e67e22;">(Covers ${Math.round((coachData.projectedChildSavings / coachData.targetDownPayment) * 100)}% of €${coachData.targetDownPayment?.toLocaleString()} goal)</p>` : ''}
+                    </div>
+                </div>
+            ` : ''}
 
             <p>One of our mortgage experts will review your request and get back to you shortly at <strong>${userEmail}</strong>.</p>
             
@@ -398,7 +429,7 @@ const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAdd
 };
 
 app.post('/api/send-email', async (req, res) => {
-    const { userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage } = req.body;
+    const { userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage, coachData, isVoiceCall } = req.body;
 
     if (!userEmail) {
         return res.status(400).json({ message: 'User email is required' });
@@ -410,7 +441,9 @@ app.post('/api/send-email', async (req, res) => {
         propertyTitle,
         propertyAddress,
         propertyPrice,
-        propertyImage
+        propertyImage,
+        coachData,
+        isVoiceCall
     });
 
     try {

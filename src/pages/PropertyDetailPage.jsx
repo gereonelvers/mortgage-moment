@@ -60,23 +60,27 @@ const PropertyDetailPage = () => {
 
     // Callback for AI to update user profile
     const updateUserProfile = (field, value) => {
-        setUserProfile(prev => ({
-            ...prev,
-            [field]: value
-        }));
+        console.log(`Updating profile: ${field} = ${value}`);
+        setUserProfile(prev => {
+            const newProfile = { ...prev, [field]: value };
+            // Trigger affordability check with new profile
+            // We need to do this after state update, or call it directly with new profile
+            // Since checkAffordability uses state, we'll rely on useEffect or pass args
+            return newProfile;
+        });
         return true;
     };
 
     // Callback for AI to check affordability
-    const checkAffordability = async () => {
+    const checkAffordability = async (currentProfile = userProfile) => {
         try {
             const response = await axios.post('/api/calculate-affordability', {
-                income: userProfile.income,
-                rent: userProfile.rent,
-                equity: userProfile.equity,
-                employmentStatus: userProfile.employmentStatus,
-                age: userProfile.age,
-                monthlyDebts: userProfile.monthlyDebts,
+                income: currentProfile.income,
+                rent: currentProfile.rent,
+                equity: currentProfile.equity,
+                employmentStatus: currentProfile.employmentStatus,
+                age: currentProfile.age,
+                monthlyDebts: currentProfile.monthlyDebts,
                 propertyPrice: displayProperty.buyingPrice.toLocaleString()
             });
             setAffordabilityResult(response.data);
@@ -86,6 +90,13 @@ const PropertyDetailPage = () => {
             return { error: 'Failed to calculate affordability' };
         }
     };
+
+    // Trigger affordability check when profile changes
+    useEffect(() => {
+        if (displayProperty) {
+            checkAffordability();
+        }
+    }, [userProfile, displayProperty]);
 
 
     useEffect(() => {
@@ -165,13 +176,26 @@ const PropertyDetailPage = () => {
         setSending(true);
 
         try {
+            // Prepare coach data if available
+            const coachData = affordabilityResult?.budgetDetails?.coach ? {
+                gap: affordabilityResult.gap,
+                futurePrice5Years: affordabilityResult.budgetDetails.option1?.futurePrice5Years,
+                requiredIncome: affordabilityResult.budgetDetails.coach.requiredIncome,
+                incomeGap: affordabilityResult.budgetDetails.coach.incomeGap,
+                monthlySavingsForChildren: affordabilityResult.budgetDetails.coach.monthlySavingsForChildren,
+                projectedChildSavings: affordabilityResult.budgetDetails.coach.projectedChildSavings,
+                targetDownPayment: affordabilityResult.budgetDetails.coach.targetDownPayment
+            } : null;
+
             const response = await axios.post('/api/send-email', {
                 userName: userProfile.name,
                 userEmail: userProfile.email,
                 propertyTitle: displayProperty.title,
                 propertyAddress: `${displayProperty.address.street}, ${displayProperty.address.city} `,
                 propertyPrice: displayProperty.buyingPrice.toLocaleString(),
-                propertyImage: displayProperty.images && displayProperty.images.length > 0 ? displayProperty.images[0].originalUrl : null
+                propertyImage: displayProperty.images && displayProperty.images.length > 0 ? displayProperty.images[0].originalUrl : null,
+                coachData: coachData,
+                isVoiceCall: true // Assume true if triggered via this flow, or we can make it dynamic
             });
             console.log('Email sent successfully! Response:', response);
             setEmailSent(true);
@@ -290,10 +314,10 @@ const PropertyDetailPage = () => {
 
                     {/* Call AI Button */}
                     <button
-                        onClick={startCall}
-                        title="Call Momo"
+                        onClick={status === 'connected' || status === 'connecting' ? stopCall : startCall}
+                        title={status === 'connected' ? "End Call" : "Call Momo"}
                         style={{
-                            background: 'white',
+                            background: status === 'connected' ? '#e74c3c' : (status === 'connecting' ? '#f39c12' : '#3498db'), // Red if connected, Orange if connecting, Blue if idle
                             color: 'white',
                             border: 'none',
                             borderRadius: '50%',
@@ -303,12 +327,17 @@ const PropertyDetailPage = () => {
                             boxShadow: 'var(--shadow-md)',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            transition: 'background 0.3s'
                         }}
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D3436" strokeWidth="2">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                        </svg>
+                        {status === 'connected' ? (
+                            <span style={{ fontSize: '1.2rem' }}>🟥</span>
+                        ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                            </svg>
+                        )}
                     </button>
                 </div>
             </div>
