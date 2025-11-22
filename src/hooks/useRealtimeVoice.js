@@ -1,11 +1,22 @@
 import { useState, useRef, useCallback } from 'react';
 
-export function useRealtimeVoice(propertyDetails, userData, onSendEmail) {
+export function useRealtimeVoice(propertyDetails, userData, onSendEmail, onUpdateProfile, onCheckAffordability) {
     const [status, setStatus] = useState('idle'); // idle, connecting, connected, error
     const [error, setError] = useState(null);
+    const [isMuted, setIsMuted] = useState(false);
     const pcRef = useRef(null);
     const dcRef = useRef(null);
     const streamRef = useRef(null);
+
+    const toggleMute = useCallback(() => {
+        if (streamRef.current) {
+            const audioTrack = streamRef.current.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                setIsMuted(!audioTrack.enabled);
+            }
+        }
+    }, []);
 
     const startCall = useCallback(async () => {
         try {
@@ -44,7 +55,7 @@ export function useRealtimeVoice(propertyDetails, userData, onSendEmail) {
 
                 // Format property details for the prompt
                 const context = propertyDetails ? `
-                    You are a "Momo", a helpful mortgage assistant for the "Mortgage Moment" application.
+                    You are "Momo", a helpful mortgage assistant for the "Mortgage Moment" application.
                     
                     You are currently discussing the following property:
 Title: ${propertyDetails.title}
@@ -54,14 +65,23 @@ Rooms: ${propertyDetails.rooms}
 Size: ${propertyDetails.squareMeter} sqm
 Floor: ${propertyDetails.floor}
 
-                    The user you are talking to provided the following details:
+                    The user you are talking to has provided the following details:
 Name: ${userData?.name || 'Unknown'}
 Email: ${userData?.email || 'Unknown'}
                     Monthly Income: €${userData?.income || 'Unknown'}
                     Current Rent: €${userData?.rent || 'Unknown'}
 Equity: €${userData?.equity || '0'}
+                    Employment Status: ${userData?.employmentStatus || 'Not provided'}
+Age: ${userData?.age || 'Not provided'}
+                    Monthly Debts: €${userData?.monthlyDebts || 'Not provided'}
 
-                    The user is interested in this property.Do not suggest other properties but help them answer their questions about this one.
+                    The user is interested in this property.Your goal is to:
+1. Naturally collect missing information(employment, age, debts). Enquire about it proactively.
+2. Once you have enough info(at minimum: income, employment, age), use the check_affordability tool to give them a definitive answer
+3. Answer their questions about the property
+
+
+                    Be conversational and helpful. Don\'t bombard them with questions, but still aim to be proactive.
                 ` : "You are a helpful mortgage assistant.";
 
                 const instructions = `${context}
@@ -69,10 +89,13 @@ IMPORTANT: Please speak ONLY in English.
                     Be excited about helping the user.
                     Introduce yourself like this: "Hi ${userData?.name ? userData.name : 'there'}, I'm Momo, your money-minded mortgage mentor. I see you've picked out a property in ${propertyDetails?.address?.city || 'your area'}. Anything specific I can help with?"
                     
-                    ## Tools
-                    You have a tool called "send_email_summary".
-                    If the user asks for a summary or more information to be sent to them, use this tool.
-                    After calling the tool, tell the user that you have sent the email.
+                    ## Tools Available
+                    You have three tools:
+1. "send_email_summary" - Send a property summary email to the user
+2. "update_user_profile" - Update the user's profile with new information they tell you
+3. "check_affordability" - Check if the user can afford this property based on their profile
+                    
+                    Use these tools appropriately based on the conversation.
                 `;
 
                 // 1. Update Session with Instructions and Tools
@@ -86,6 +109,36 @@ IMPORTANT: Please speak ONLY in English.
                                 type: "function",
                                 name: "send_email_summary",
                                 description: "Send an email summary of the current property to the user.",
+                                parameters: {
+                                    type: "object",
+                                    properties: {},
+                                    required: []
+                                }
+                            },
+                            {
+                                type: "function",
+                                name: "update_user_profile",
+                                description: "Update a field in the user's profile with new information.",
+                                parameters: {
+                                    type: "object",
+                                    properties: {
+                                        field: {
+                                            type: "string",
+                                            enum: ["employmentStatus", "age", "monthlyDebts"],
+                                            description: "The field to update"
+                                        },
+                                        value: {
+                                            type: "string",
+                                            description: "The new value for the field"
+                                        }
+                                    },
+                                    required: ["field", "value"]
+                                }
+                            },
+                            {
+                                type: "function",
+                                name: "check_affordability",
+                                description: "Check if the user can afford this property based on their current profile information.",
                                 parameters: {
                                     type: "object",
                                     properties: {},
@@ -139,6 +192,54 @@ IMPORTANT: Please speak ONLY in English.
                         };
                         dc.send(JSON.stringify(responseCreate));
                     }
+                    else if (name === 'update_user_profile') {
+                        console.log('AI requested to update user profile:', args);
+
+                        try {
+                            const parsedArgs = JSON.parse(args);
+                            const success = onUpdateProfile(parsedArgs.field, parsedArgs.value);
+
+                            const functionOutput = {
+                                type: "conversation.item.create",
+                                item: {
+                                    type: "function_call_output",
+                                    call_id: call_id,
+                                    output: JSON.stringify({
+                                        success: success,
+                                        message: `Updated ${parsedArgs.field} to ${parsedArgs.value}`
+                                    })
+                                }
+                            };
+                            dc.send(JSON.stringify(functionOutput));
+
+                            const responseCreate = {
+                                type: "response.create"
+                            };
+                            dc.send(JSON.stringify(responseCreate));
+                        } catch (error) {
+                            console.error('Error parsing args:', error);
+                        }
+                    }
+                    else if (name === 'check_affordability') {
+                        console.log('AI requested affordability check');
+
+                        const result = await onCheckAffordability();
+
+                        const functionOutput = {
+                            type: "conversation.item.create",
+                            item: {
+                                type: "function_call_output",
+                                call_id: call_id,
+                                output: JSON.stringify(result)
+                            }
+                        };
+                        dc.send(JSON.stringify(functionOutput));
+
+                        const responseCreate = {
+                            type: "response.create"
+                        };
+                        dc.send(JSON.stringify(responseCreate));
+                    }
                 }
             };
 
@@ -172,7 +273,8 @@ IMPORTANT: Please speak ONLY in English.
         if (dcRef.current) dcRef.current.close();
         if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
         setStatus('idle');
+        setIsMuted(false);
     }, []);
 
-    return { startCall, stopCall, status, error };
+    return { startCall, stopCall, status, error, isMuted, toggleMute };
 }

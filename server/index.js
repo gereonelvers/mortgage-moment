@@ -159,29 +159,23 @@ app.post('/api/send-email', async (req, res) => {
     const { userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage } = req.body;
 
     if (!userEmail) {
-        return res.status(400).json({ error: "User email is required" });
+        return res.status(400).json({ message: 'User email is required' });
     }
 
-    const apiKey = process.env.BREVO_API_KEY || process.env.VITE_BREVO_API_KEY;
-    if (!apiKey) {
-        console.error("BREVO_API_KEY is missing");
-        return res.status(500).json({ error: "Server configuration error" });
-    }
+    const htmlContent = generateEmailTemplate({
+        userName,
+        userEmail,
+        propertyTitle,
+        propertyAddress,
+        propertyPrice,
+        propertyImage
+    });
 
     try {
-        const htmlContent = generateEmailTemplate({
-            userName,
-            userEmail,
-            propertyTitle,
-            propertyAddress,
-            propertyPrice,
-            propertyImage
-        });
-
         const response = await axios.post('https://api.brevo.com/v3/smtp/email', {
             sender: {
                 name: process.env.SENDER_NAME || "Mortgage Moment",
-                email: process.env.SENDER_EMAIL || "info@mortgagemoment.com"
+                email: process.env.SENDER_EMAIL || "no-reply@mortgagemoment.com"
             },
             to: [
                 {
@@ -189,22 +183,89 @@ app.post('/api/send-email', async (req, res) => {
                     name: userName || "User"
                 }
             ],
-            subject: `Inquiry Confirmation: ${propertyTitle}`,
+            subject: `Property Summary: ${propertyTitle}`,
             htmlContent: htmlContent
         }, {
             headers: {
-                'accept': 'application/json',
-                'api-key': apiKey,
-                'content-type': 'application/json'
+                'api-key': process.env.BREVO_API_KEY || process.env.VITE_BREVO_API_KEY,
+                'Content-Type': 'application/json',
+                'accept': 'application/json'
             }
         });
 
-        console.log('Email sent successfully via backend');
-        res.json({ success: true, message: "Email sent" });
+        console.log('Email sent successfully:', response.data);
+        res.json({ message: 'Email sent successfully', data: response.data });
+    } catch (error) {
+        console.error('Error sending email:', error.response ? error.response.data : error.message);
+        res.status(500).json({ message: 'Failed to send email', error: error.response ? error.response.data : error.message });
+    }
+});
+
+// Affordability Calculation Endpoint
+app.post('/api/calculate-affordability', (req, res) => {
+    try {
+        const {
+            income,
+            rent,
+            equity,
+            employmentStatus,
+            age,
+            monthlyDebts,
+            propertyPrice
+        } = req.body;
+
+        // Parse inputs
+        const monthlyIncome = parseFloat(income) || 0;
+        const monthlyRent = parseFloat(rent) || 0; // Not directly used in calculation but good for context
+        const totalEquity = parseFloat(equity) || 0;
+        const debts = parseFloat(monthlyDebts) || 0;
+        const price = parseFloat(propertyPrice ? propertyPrice.replace(/[^0-9.-]+/g, "") : 0);
+
+        // Simple Affordability Logic
+        // 1. Max Monthly Payment (35% of net income minus debts)
+        const maxMonthlyPayment = (monthlyIncome - debts) * 0.35;
+
+        // 2. Max Loan Amount
+        // Assuming 3.5% interest + 2.0% repayment = 5.5% annual rate
+        // Monthly rate factor = 5.5% / 12
+        const annualRate = 0.055;
+        const monthlyRate = annualRate / 12;
+
+        // Loan formula: Loan = Payment / MonthlyRate (Simplified for annuity)
+        // Actually, simpler rule of thumb for Germany: (MonthlyPayment * 12) / 0.055
+        const maxLoan = (maxMonthlyPayment * 12) / 0.055;
+
+        // 3. Max Property Price
+        const maxAffordablePrice = maxLoan + totalEquity;
+
+        // 4. Check Affordability
+        const isAffordable = maxAffordablePrice >= price;
+
+        // 5. Generate Message
+        let message = "";
+        if (isAffordable) {
+            message = "Great news! Based on your income and equity, this property is within your budget.";
+        } else {
+            const diff = price - maxAffordablePrice;
+            message = `This property is a bit above your calculated budget. You would need approximately €${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })} more in equity or a higher income to afford it comfortably.`;
+        }
+
+        res.json({
+            isAffordable,
+            maxAffordablePrice,
+            maxMonthlyPayment,
+            message,
+            details: {
+                maxLoan,
+                equity: totalEquity,
+                income: monthlyIncome,
+                debts
+            }
+        });
 
     } catch (error) {
-        console.error("Error sending email:", error.response?.data || error.message);
-        res.status(500).json({ error: "Failed to send email", details: error.response?.data });
+        console.error("Error calculating affordability:", error);
+        res.status(500).json({ error: "Failed to calculate affordability" });
     }
 });
 
