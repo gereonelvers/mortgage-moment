@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 const LandingPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const location = searchParams.get('location') || 'your area';
+    const location = searchParams.get('location') || 'Garching';
 
     const [formData, setFormData] = useState({
         name: '',
@@ -50,7 +50,7 @@ const LandingPage = () => {
             }}>
                 <div className="container">
                     <h1 style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', color: 'var(--color-text-main)' }}>
-                        <span style={{ color: 'var(--color-primary)' }}>72 people</span> have bought a house in {location} in the past six months.
+                        <span style={{ color: 'var(--color-primary)' }}>72 neighbors</span> have bought a home in {location} in the past six months.
                     </h1>
                     <p style={{ fontSize: '1.5rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
                         See if this is right for you.
