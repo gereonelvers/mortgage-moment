@@ -231,23 +231,61 @@ app.get('/api/properties', async (req, res) => {
             });
 
             // Fallback Options
+            // Fallback Options & Affordability Coach
             const affordableCount = mappedResults.filter(r => r.affordability.isAffordable).length;
-            if (affordableCount === 0 && mappedResults.length > 0) {
-                const cheapest = mappedResults[0];
-                const gap = cheapest.affordability.gap;
-                const futureCost = cheapest.buyingPrice * Math.pow(1.03, 5);
+
+            // Calculate Required Income for the cheapest property (or a default if none found)
+            let requiredIncome = 0;
+            let cheapestPrice = 0;
+
+            if (mappedResults.length > 0) {
+                // Find cheapest property
+                const sortedByPrice = [...mappedResults].sort((a, b) => a.buyingPrice - b.buyingPrice);
+                const cheapest = sortedByPrice[0];
+                cheapestPrice = cheapest.buyingPrice;
+            } else {
+                // Default fallback price if no results (e.g. for Munich average)
+                cheapestPrice = 400000;
+            }
+
+            // Reverse calculation: 
+            // Price = (Loan + Equity) / 1.1
+            // Loan = (Price * 1.1) - Equity
+            // MonthlyPayment = (Loan * 0.055) / 12
+            // NetIncome = MonthlyPayment / 0.35 + Debts
+            const purchasingCostFactor = 0.10;
+            const targetLoan = (cheapestPrice * (1 + purchasingCostFactor)) - (parseFloat(equity) || 0);
+            const targetMonthlyPayment = (targetLoan * 0.055) / 12; // Assuming 3.5% interest + 2% repayment
+            requiredIncome = Math.ceil((targetMonthlyPayment / 0.35) + (parseFloat(debts) || 0));
+
+            // Alternative Locations
+            const alternativeLocations = [
+                { name: "Chemnitz", lat: 50.8278, lng: 12.9214, avgPrice: 150000, description: "High yield potential" },
+                { name: "Magdeburg", lat: 52.1205, lng: 11.6276, avgPrice: 180000, description: "Growing tech hub" },
+                { name: "Duisburg", lat: 51.4344, lng: 6.7623, avgPrice: 160000, description: "Affordable entry" },
+                { name: "Bremerhaven", lat: 53.5396, lng: 8.5809, avgPrice: 140000, description: "Coastal living" }
+            ];
+
+            if (affordableCount === 0) {
+                let cheapest = mappedResults.length > 0 ? mappedResults.sort((a, b) => a.buyingPrice - b.buyingPrice)[0] : null;
+                const gap = cheapest ? cheapest.affordability.gap : (cheapestPrice - maxAffordablePrice);
+
+                // Future cost calculation
+                const futureCost = cheapestPrice * Math.pow(1.03, 5);
                 const yearsToSave = 18;
-                const futureCostChildren = cheapest.buyingPrice * Math.pow(1.03, yearsToSave);
+                const futureCostChildren = cheapestPrice * Math.pow(1.03, yearsToSave);
                 const neededSavings = Math.max(0, futureCostChildren - (parseFloat(equity) || 0));
                 const monthlySavings = neededSavings / (yearsToSave * 12);
 
                 affordabilityOptions = {
-                    cheapestPropertyId: cheapest.id,
-                    budgetDetails, // Pass the full Interhyp response
+                    cheapestPropertyId: cheapest ? cheapest.id : null,
+                    budgetDetails,
+                    requiredIncome,
+                    alternativeLocations,
                     option1: {
                         description: "What you are missing today",
                         gap: gap,
-                        cheapestPrice: cheapest.buyingPrice,
+                        cheapestPrice: cheapestPrice,
                         futurePrice5Years: Math.round(futureCost),
                         message: `You are currently €${gap.toLocaleString(undefined, { maximumFractionDigits: 0 })} short for the cheapest property. In 5 years, this property might cost around €${Math.round(futureCost).toLocaleString()}.`
                     },
@@ -257,10 +295,19 @@ app.get('/api/properties', async (req, res) => {
                         futurePrice: Math.round(futureCostChildren),
                         monthlySavingsRequired: Math.round(monthlySavings),
                         message: `To help your children afford a similar home in ${yearsToSave} years (estimated cost €${Math.round(futureCostChildren).toLocaleString()}), you would need to save approximately €${Math.round(monthlySavings).toLocaleString()} per month.`
+                    },
+                    coach: {
+                        requiredIncome: requiredIncome,
+                        incomeGap: Math.max(0, requiredIncome - (parseFloat(income) || 0)),
+                        monthlySavingsForChildren: Math.round(monthlySavings)
                     }
                 };
             } else if (budgetDetails) {
-                affordabilityOptions = { budgetDetails };
+                affordabilityOptions = {
+                    budgetDetails,
+                    requiredIncome,
+                    alternativeLocations
+                };
             }
         }
 

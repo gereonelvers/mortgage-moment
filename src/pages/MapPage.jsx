@@ -404,6 +404,99 @@ const MapPage = () => {
                     <p>Loading properties...</p>
                 ) : (
                     <>
+                        {/* Affordability Coach - Show when no affordable properties found */}
+                        {budgetDetails && filteredProperties.filter(p => p.affordability && p.affordability.isAffordable).length === 0 && (
+                            <div style={{
+                                background: '#fff',
+                                borderRadius: 'var(--radius-lg)',
+                                padding: 'var(--spacing-lg)',
+                                marginBottom: 'var(--spacing-xl)',
+                                border: '1px solid #e0e0e0',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                            }}>
+                                <h2 style={{ marginTop: 0, color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
+                                    Affordability Coach 🏠
+                                </h2>
+                                <p style={{ fontSize: '1.1rem', color: '#555' }}>
+                                    It looks like the properties in this area are currently out of reach. Don't worry, here is your personalized plan to bridge the gap.
+                                </p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--spacing-lg)', marginTop: 'var(--spacing-lg)' }}>
+
+                                    {/* Reality Check */}
+                                    <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', borderLeft: '4px solid #e74c3c' }}>
+                                        <h3 style={{ marginTop: 0, color: '#c0392b' }}>The Reality Check</h3>
+                                        <p>You are currently <strong>€{budgetDetails.option1?.gap?.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong> short for the cheapest property here.</p>
+                                        <p style={{ fontSize: '0.9rem', color: '#666' }}>In 5 years, prices here might rise to €{budgetDetails.option1?.futurePrice5Years?.toLocaleString()}.</p>
+                                    </div>
+
+                                    {/* Plan A: Income */}
+                                    <div style={{ background: '#f0f9ff', padding: '20px', borderRadius: '8px', borderLeft: '4px solid #3498db' }}>
+                                        <h3 style={{ marginTop: 0, color: '#2980b9' }}>Plan A: Boost Income</h3>
+                                        <p>To afford a home here, you would need a net monthly income of approximately:</p>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2c3e50', margin: '10px 0' }}>
+                                            €{budgetDetails.coach?.requiredIncome?.toLocaleString()}
+                                        </div>
+                                        <p style={{ fontSize: '0.9rem', color: '#666' }}>
+                                            That's an increase of <strong>€{budgetDetails.coach?.incomeGap?.toLocaleString()}</strong> per month.
+                                        </p>
+                                    </div>
+
+                                    {/* Plan B: Generational Wealth */}
+                                    <div style={{ background: '#f0fff4', padding: '20px', borderRadius: '8px', borderLeft: '4px solid #27ae60' }}>
+                                        <h3 style={{ marginTop: 0, color: '#27ae60' }}>Plan B: For Your Children</h3>
+                                        <p>Invest in an ETF to help your children buy here in 18 years.</p>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2c3e50', margin: '10px 0' }}>
+                                            €{budgetDetails.coach?.monthlySavingsForChildren?.toLocaleString()} / month
+                                        </div>
+                                        <p style={{ fontSize: '0.9rem', color: '#666' }}>
+                                            Assuming 7% annual return, this could grow to cover the future down payment.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Plan C: Alternative Locations */}
+                                <div style={{ marginTop: 'var(--spacing-xl)' }}>
+                                    <h3 style={{ color: '#2c3e50' }}>Plan C: Where you can buy right now</h3>
+                                    <p>Based on your current budget, you could comfortably afford a home in these growing cities:</p>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px', marginTop: '15px' }}>
+                                        {budgetDetails.alternativeLocations?.map((loc, index) => (
+                                            <div
+                                                key={index}
+                                                onClick={() => {
+                                                    // Update URL and trigger search
+                                                    const newParams = new URLSearchParams(searchParams);
+                                                    newParams.set('location', loc.name);
+                                                    navigate(`/map?${newParams.toString()}`, { state: { formData } });
+                                                }}
+                                                style={{
+                                                    padding: '15px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                                    background: 'white'
+                                                }}
+                                                onMouseOver={(e) => {
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+                                                }}
+                                                onMouseOut={(e) => {
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = 'none';
+                                                }}
+                                            >
+                                                <h4 style={{ margin: '0 0 5px', color: '#2c3e50' }}>{loc.name}</h4>
+                                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#27ae60', fontWeight: 'bold' }}>Avg. €{loc.avgPrice.toLocaleString()}</p>
+                                                <p style={{ margin: '5px 0 0', fontSize: '0.8rem', color: '#7f8c8d' }}>{loc.description}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-md)' }}>
                             {filteredProperties
                                 .slice(0, visibleCount)
