@@ -164,8 +164,8 @@ const MapPage = () => {
             const interestRate = parseFloat(formData.interestRate) || 3.5;
             const repaymentRate = parseFloat(formData.repaymentRate) || 2.0;
 
-            // Logic: Max monthly rate = 40% of net income
-            const maxMonthlyRate = monthlyNetIncome * 0.40;
+            // Logic: Max monthly rate = 35% of net income (conservative estimate)
+            const maxMonthlyRate = monthlyNetIncome * 0.35;
 
             // Max Loan Amount = (Monthly Rate * 12) / (Interest + Repayment)%
             const annualRate = (interestRate + repaymentRate) / 100;
@@ -194,7 +194,8 @@ const MapPage = () => {
                 if (locationQuery) params.append('location', locationQuery);
                 if (formData.income) params.append('income', formData.income);
                 if (formData.equity) params.append('equity', formData.equity);
-                if (formData.rent) params.append('debts', formData.rent); // Assuming rent is a debt/obligation
+                // Do NOT pass rent as debts, as mortgage replaces rent
+                // if (formData.rent) params.append('debts', formData.rent); 
 
                 const response = await fetch(`/api/properties?${params.toString()}`);
                 const result = await response.json();
