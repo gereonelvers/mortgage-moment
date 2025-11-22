@@ -454,8 +454,13 @@ const MapPage = () => {
                                             €{budgetDetails.coach?.monthlySavingsForChildren?.toLocaleString()} / month
                                         </div>
                                         <p style={{ fontSize: '0.9rem', color: '#666' }}>
-                                            Assuming 7% annual return, this could grow to cover the future down payment.
+                                            Assuming 7% annual return, this grows to <strong>€{budgetDetails.coach?.projectedChildSavings?.toLocaleString()}</strong>.
                                         </p>
+                                        {budgetDetails.coach?.projectedChildSavings < budgetDetails.coach?.targetDownPayment && (
+                                            <p style={{ fontSize: '0.8rem', color: '#e67e22', marginTop: '5px' }}>
+                                                (Covers {Math.round((budgetDetails.coach.projectedChildSavings / budgetDetails.coach.targetDownPayment) * 100)}% of the €{budgetDetails.coach.targetDownPayment.toLocaleString()} down payment goal)
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 

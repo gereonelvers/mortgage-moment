@@ -270,12 +270,30 @@ app.get('/api/properties', async (req, res) => {
                 let cheapest = mappedResults.length > 0 ? mappedResults.sort((a, b) => a.buyingPrice - b.buyingPrice)[0] : null;
                 const gap = cheapest ? cheapest.affordability.gap : (cheapestPrice - maxAffordablePrice);
 
-                // Future cost calculation
-                const futureCost = cheapestPrice * Math.pow(1.03, 5);
+                // Future cost calculation (Child Plan)
+                // Target: €150,000 down payment in 18 years
+                const targetDownPayment = 150000;
                 const yearsToSave = 18;
-                const futureCostChildren = cheapestPrice * Math.pow(1.03, yearsToSave);
-                const neededSavings = Math.max(0, futureCostChildren - (parseFloat(equity) || 0));
-                const monthlySavings = neededSavings / (yearsToSave * 12);
+                const annualReturn = 0.07;
+                const monthlyRate = annualReturn / 12;
+                const months = yearsToSave * 12;
+
+                // Formula: P = FV * r / ((1 + r)^n - 1)
+                const requiredMonthlySavings = targetDownPayment * monthlyRate / (Math.pow(1 + monthlyRate, months) - 1);
+
+                // Feasibility Check (Cap at €500/month)
+                const maxFeasibleSavings = 500;
+                let recommendedSavings = 0;
+                let projectedValue = 0;
+
+                if (requiredMonthlySavings > maxFeasibleSavings) {
+                    recommendedSavings = maxFeasibleSavings;
+                    // Formula: FV = P * ((1 + r)^n - 1) / r
+                    projectedValue = recommendedSavings * (Math.pow(1 + monthlyRate, months) - 1) / monthlyRate;
+                } else {
+                    recommendedSavings = requiredMonthlySavings;
+                    projectedValue = targetDownPayment;
+                }
 
                 affordabilityOptions = {
                     cheapestPropertyId: cheapest ? cheapest.id : null,
@@ -286,20 +304,22 @@ app.get('/api/properties', async (req, res) => {
                         description: "What you are missing today",
                         gap: gap,
                         cheapestPrice: cheapestPrice,
-                        futurePrice5Years: Math.round(futureCost),
-                        message: `You are currently €${gap.toLocaleString(undefined, { maximumFractionDigits: 0 })} short for the cheapest property. In 5 years, this property might cost around €${Math.round(futureCost).toLocaleString()}.`
+                        futurePrice5Years: Math.round(cheapestPrice * Math.pow(1.03, 5)),
+                        message: `You are currently €${gap.toLocaleString(undefined, { maximumFractionDigits: 0 })} short for the cheapest property.`
                     },
                     option2: {
                         description: "Savings plan for the next generation",
                         years: yearsToSave,
-                        futurePrice: Math.round(futureCostChildren),
-                        monthlySavingsRequired: Math.round(monthlySavings),
-                        message: `To help your children afford a similar home in ${yearsToSave} years (estimated cost €${Math.round(futureCostChildren).toLocaleString()}), you would need to save approximately €${Math.round(monthlySavings).toLocaleString()} per month.`
+                        futurePrice: Math.round(projectedValue),
+                        monthlySavingsRequired: Math.round(recommendedSavings),
+                        message: `To help your children, investing €${Math.round(recommendedSavings).toLocaleString()} per month could grow to €${Math.round(projectedValue).toLocaleString()} in ${yearsToSave} years.`
                     },
                     coach: {
                         requiredIncome: requiredIncome,
                         incomeGap: Math.max(0, requiredIncome - (parseFloat(income) || 0)),
-                        monthlySavingsForChildren: Math.round(monthlySavings)
+                        monthlySavingsForChildren: Math.round(recommendedSavings),
+                        projectedChildSavings: Math.round(projectedValue),
+                        targetDownPayment: targetDownPayment
                     }
                 };
             } else if (budgetDetails) {
