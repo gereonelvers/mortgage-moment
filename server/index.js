@@ -45,10 +45,74 @@ try {
 }
 
 // API Endpoints
-app.get('/api/properties', (req, res) => {
+app.get('/api/properties', async (req, res) => {
     try {
         let { minPrice, maxPrice, rooms, size, limit, offset } = req.query;
+        const limitVal = parseInt(limit) || 50;
+        const offsetVal = parseInt(offset) || 0;
 
+        try {
+            // Try fetching from ThinkImmo API
+            const apiResponse = await axios.post('https://thinkimmo-api.mgraetz.de/thinkimmo', {
+                "active": true,
+                "type": "APARTMENTBUY",
+                "sortBy": "desc",
+                "sortKey": "pricePerSqm",
+                "from": offsetVal,
+                "size": limitVal,
+                "geoSearches": {
+                    "geoSearchQuery": "München",
+                    "geoSearchType": "town",
+                    "region": "Bayern"
+                }
+            }, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (apiResponse.data && apiResponse.data.results) {
+                const apiResults = apiResponse.data.results;
+                const total = apiResponse.data.total || apiResults.length;
+
+                const mappedResults = apiResults.map(item => ({
+                    id: item.id,
+                    title: item.title,
+                    address: {
+                        lat: item.address ? item.address.lat : null,
+                        lon: item.address ? item.address.lon : null,
+                        street: item.address ? (item.address.road + (item.address.house_number ? ' ' + item.address.house_number : '')) : '',
+                        postcode: item.address ? item.address.postcode : '',
+                        city: item.address ? item.address.city : ''
+                    },
+                    buyingPrice: item.buyingPrice,
+                    pricePerSqm: item.pricePerSqm,
+                    rooms: item.rooms,
+                    squareMeter: item.squareMeter,
+                    images: item.images ? item.images.map(img => ({ originalUrl: img.originalUrl })) : [],
+                    floor: item.floor || 0
+                }));
+
+                // Apply local filtering if needed (though this only filters the current page)
+                let filteredResults = mappedResults;
+                if (maxPrice) filteredResults = filteredResults.filter(p => p.buyingPrice <= parseInt(maxPrice));
+                if (minPrice) filteredResults = filteredResults.filter(p => p.buyingPrice >= parseInt(minPrice));
+                if (rooms) filteredResults = filteredResults.filter(p => p.rooms >= parseFloat(rooms));
+                if (size) filteredResults = filteredResults.filter(p => p.squareMeter >= parseFloat(size));
+
+                return res.json({
+                    total,
+                    count: filteredResults.length,
+                    offset: offsetVal,
+                    limit: limitVal,
+                    data: filteredResults
+                });
+            }
+        } catch (apiError) {
+            console.warn("ThinkImmo API failed, falling back to local data:", apiError.message);
+        }
+
+        // Fallback to local properties
         let results = properties;
 
         // Filtering
@@ -67,9 +131,6 @@ app.get('/api/properties', (req, res) => {
 
         // Pagination
         const total = results.length;
-        const limitVal = parseInt(limit) || 50;
-        const offsetVal = parseInt(offset) || 0;
-
         const paginatedResults = results.slice(offsetVal, offsetVal + limitVal);
 
         const mappedResults = paginatedResults.map(item => ({
