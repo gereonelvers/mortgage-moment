@@ -44,119 +44,206 @@ try {
     console.error("Error loading properties:", error);
 }
 
+// Helper function for affordability
+const calculateAffordability = (income, equity, debts, propertyPrice) => {
+    const monthlyIncome = parseFloat(income) || 0;
+    const totalEquity = parseFloat(equity) || 0;
+    const monthlyDebts = parseFloat(debts) || 0;
+    const price = parseFloat(propertyPrice) || 0;
+
+    // 1. Max Monthly Payment (35% of net income minus debts)
+    const maxMonthlyPayment = (monthlyIncome - monthlyDebts) * 0.35;
+
+    // 2. Max Loan Amount
+    // Assuming 3.5% interest + 2.0% repayment = 5.5% annual rate
+    const annualRate = 0.055;
+    const maxLoan = (maxMonthlyPayment * 12) / annualRate;
+
+    // 3. Max Property Price
+    const maxAffordablePrice = maxLoan + totalEquity;
+
+    // 4. Check Affordability
+    const isAffordable = maxAffordablePrice >= price;
+    const gap = isAffordable ? 0 : price - maxAffordablePrice;
+
+    return {
+        isAffordable,
+        maxAffordablePrice,
+        maxMonthlyPayment,
+        gap,
+        details: {
+            maxLoan,
+            equity: totalEquity,
+            income: monthlyIncome,
+            debts: monthlyDebts
+        }
+    };
+};
+
 // API Endpoints
 app.get('/api/properties', async (req, res) => {
     try {
-        let { minPrice, maxPrice, rooms, size, limit, offset } = req.query;
+        console.log("Request Query:", req.query);
+        let { minPrice, maxPrice, rooms, size, limit, offset, location, income, equity, debts } = req.query;
         const limitVal = parseInt(limit) || 50;
         const offsetVal = parseInt(offset) || 0;
 
-        try {
-            // Try fetching from ThinkImmo API
-            const apiResponse = await axios.post('https://thinkimmo-api.mgraetz.de/thinkimmo', {
-                "active": true,
-                "type": "APARTMENTBUY",
-                "sortBy": "desc",
-                "sortKey": "pricePerSqm",
-                "from": offsetVal,
-                "size": limitVal,
-                "geoSearches": {
-                    "geoSearchQuery": "München",
-                    "geoSearchType": "town",
-                    "region": "Bayern"
-                }
-            }, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+        let apiResults = [];
+        let total = 0;
+
+        // Helper to fetch from API
+        const fetchFromApi = async (searchLocation) => {
+            try {
+                const response = await axios.post('https://thinkimmo-api.mgraetz.de/thinkimmo', {
+                    "active": true,
+                    "type": "APARTMENTBUY",
+                    "sortBy": "desc",
+                    "sortKey": "pricePerSqm",
+                    "from": offsetVal,
+                    "size": limitVal,
+                    "geoSearches": {
+                        "geoSearchQuery": searchLocation,
+                        "geoSearchType": "town",
+                        "region": "Bayern"
+                    }
+                }, { headers: { 'Content-Type': 'application/json' } });
+                return response.data;
+            } catch (e) {
+                console.warn(`API fetch failed for ${searchLocation}:`, e.message);
+                return null;
+            }
+        };
+
+        // 1. Try requested location
+        if (location) {
+            const data = await fetchFromApi(location);
+            if (data && data.results && data.results.length > 0) {
+                apiResults = data.results;
+                total = data.total;
+            }
+        }
+
+        // 2. Fallback to München if no location or no results
+        if (apiResults.length === 0) {
+            const data = await fetchFromApi("München");
+            if (data && data.results) {
+                apiResults = data.results;
+                total = data.total;
+            }
+        }
+
+        // Map results
+        let mappedResults = [];
+        if (apiResults.length > 0) {
+            mappedResults = apiResults.map(item => ({
+                id: item.id,
+                title: item.title,
+                address: {
+                    lat: item.address ? item.address.lat : null,
+                    lon: item.address ? item.address.lon : null,
+                    street: item.address ? (item.address.road + (item.address.house_number ? ' ' + item.address.house_number : '')) : '',
+                    postcode: item.address ? item.address.postcode : '',
+                    city: item.address ? item.address.city : ''
+                },
+                buyingPrice: item.buyingPrice,
+                pricePerSqm: item.pricePerSqm,
+                rooms: item.rooms,
+                squareMeter: item.squareMeter,
+                images: item.images ? item.images.map(img => ({ originalUrl: img.originalUrl })) : [],
+                floor: item.floor || 0
+            }));
+        } else {
+            // Fallback to local properties if API fails completely
+            let results = properties;
+            // Filtering
+            if (maxPrice) results = results.filter(p => p.p <= parseInt(maxPrice));
+            if (minPrice) results = results.filter(p => p.p >= parseInt(minPrice));
+            if (rooms) results = results.filter(p => p.r >= parseFloat(rooms));
+            if (size) results = results.filter(p => p.s >= parseFloat(size));
+
+            total = results.length;
+            const paginatedResults = results.slice(offsetVal, offsetVal + limitVal);
+            mappedResults = paginatedResults.map(item => ({
+                id: item.id,
+                title: item.t,
+                address: { lat: item.lat, lon: item.lng, street: item.l, postcode: item.pc, city: item.c },
+                buyingPrice: item.p,
+                pricePerSqm: item.s ? Math.round(item.p / item.s) : 0,
+                rooms: item.r,
+                squareMeter: item.s,
+                images: item.imgs.map(url => ({ originalUrl: url })),
+                floor: 0
+            }));
+        }
+
+        // Apply filters (API might not support all, or we mixed sources)
+        if (maxPrice) mappedResults = mappedResults.filter(p => p.buyingPrice <= parseInt(maxPrice));
+        if (minPrice) mappedResults = mappedResults.filter(p => p.buyingPrice >= parseInt(minPrice));
+        if (rooms) mappedResults = mappedResults.filter(p => p.rooms >= parseFloat(rooms));
+        if (size) mappedResults = mappedResults.filter(p => p.squareMeter >= parseFloat(size));
+
+
+        // Affordability Logic & Sorting
+        let affordabilityOptions = null;
+
+        if (income || equity) { // Only if financial data is present
+            mappedResults = mappedResults.map(item => {
+                const affordability = calculateAffordability(income, equity, debts, item.buyingPrice);
+                return { ...item, affordability };
             });
 
-            if (apiResponse.data && apiResponse.data.results) {
-                const apiResults = apiResponse.data.results;
-                const total = apiResponse.data.total || apiResults.length;
+            // Sort: Affordable first, then by price ascending (cheaper is "better matching" for budget)
+            mappedResults.sort((a, b) => {
+                if (a.affordability.isAffordable && !b.affordability.isAffordable) return -1;
+                if (!a.affordability.isAffordable && b.affordability.isAffordable) return 1;
+                return a.buyingPrice - b.buyingPrice;
+            });
 
-                const mappedResults = apiResults.map(item => ({
-                    id: item.id,
-                    title: item.title,
-                    address: {
-                        lat: item.address ? item.address.lat : null,
-                        lon: item.address ? item.address.lon : null,
-                        street: item.address ? (item.address.road + (item.address.house_number ? ' ' + item.address.house_number : '')) : '',
-                        postcode: item.address ? item.address.postcode : '',
-                        city: item.address ? item.address.city : ''
+            // Check if user cannot afford any
+            const affordableCount = mappedResults.filter(r => r.affordability.isAffordable).length;
+
+            if (affordableCount === 0 && mappedResults.length > 0) {
+                const cheapest = mappedResults[0]; // Already sorted by price ascending
+                const gap = cheapest.affordability.gap;
+
+                // Option 1: Missing budget analysis
+                const futureCost = cheapest.buyingPrice * Math.pow(1.03, 5); // 3% inflation, 5 years
+
+                // Option 2: Savings plan for children (e.g., 18 years)
+                const yearsToSave = 18;
+                const futureCostChildren = cheapest.buyingPrice * Math.pow(1.03, yearsToSave);
+                // Simple savings plan: (FutureCost - CurrentEquity) / (Years * 12)
+                // Assuming equity grows? Let's keep it simple.
+                const neededSavings = Math.max(0, futureCostChildren - (parseFloat(equity) || 0));
+                const monthlySavings = neededSavings / (yearsToSave * 12);
+
+                affordabilityOptions = {
+                    cheapestPropertyId: cheapest.id,
+                    option1: {
+                        description: "What you are missing today",
+                        gap: gap,
+                        cheapestPrice: cheapest.buyingPrice,
+                        futurePrice5Years: Math.round(futureCost),
+                        message: `You are currently €${gap.toLocaleString(undefined, { maximumFractionDigits: 0 })} short for the cheapest property. In 5 years, this property might cost around €${Math.round(futureCost).toLocaleString()}.`
                     },
-                    buyingPrice: item.buyingPrice,
-                    pricePerSqm: item.pricePerSqm,
-                    rooms: item.rooms,
-                    squareMeter: item.squareMeter,
-                    images: item.images ? item.images.map(img => ({ originalUrl: img.originalUrl })) : [],
-                    floor: item.floor || 0
-                }));
-
-                // Apply local filtering if needed (though this only filters the current page)
-                let filteredResults = mappedResults;
-                if (maxPrice) filteredResults = filteredResults.filter(p => p.buyingPrice <= parseInt(maxPrice));
-                if (minPrice) filteredResults = filteredResults.filter(p => p.buyingPrice >= parseInt(minPrice));
-                if (rooms) filteredResults = filteredResults.filter(p => p.rooms >= parseFloat(rooms));
-                if (size) filteredResults = filteredResults.filter(p => p.squareMeter >= parseFloat(size));
-
-                return res.json({
-                    total,
-                    count: filteredResults.length,
-                    offset: offsetVal,
-                    limit: limitVal,
-                    data: filteredResults
-                });
+                    option2: {
+                        description: "Savings plan for the next generation",
+                        years: yearsToSave,
+                        futurePrice: Math.round(futureCostChildren),
+                        monthlySavingsRequired: Math.round(monthlySavings),
+                        message: `To help your children afford a similar home in ${yearsToSave} years (estimated cost €${Math.round(futureCostChildren).toLocaleString()}), you would need to save approximately €${Math.round(monthlySavings).toLocaleString()} per month.`
+                    }
+                };
             }
-        } catch (apiError) {
-            console.warn("ThinkImmo API failed, falling back to local data:", apiError.message);
         }
-
-        // Fallback to local properties
-        let results = properties;
-
-        // Filtering
-        if (maxPrice) {
-            results = results.filter(p => p.p <= parseInt(maxPrice));
-        }
-        if (minPrice) {
-            results = results.filter(p => p.p >= parseInt(minPrice));
-        }
-        if (rooms) {
-            results = results.filter(p => p.r >= parseFloat(rooms));
-        }
-        if (size) {
-            results = results.filter(p => p.s >= parseFloat(size));
-        }
-
-        // Pagination
-        const total = results.length;
-        const paginatedResults = results.slice(offsetVal, offsetVal + limitVal);
-
-        const mappedResults = paginatedResults.map(item => ({
-            id: item.id,
-            title: item.t,
-            address: {
-                lat: item.lat,
-                lon: item.lng,
-                street: item.l,
-                postcode: item.pc,
-                city: item.c
-            },
-            buyingPrice: item.p,
-            pricePerSqm: item.s ? Math.round(item.p / item.s) : 0,
-            rooms: item.r,
-            squareMeter: item.s,
-            images: item.imgs.map(url => ({ originalUrl: url })),
-            floor: 0
-        }));
 
         res.json({
             total,
             count: mappedResults.length,
             offset: offsetVal,
             limit: limitVal,
-            data: mappedResults
+            data: mappedResults,
+            affordabilityOptions
         });
 
     } catch (error) {
@@ -275,53 +362,21 @@ app.post('/api/calculate-affordability', (req, res) => {
             propertyPrice
         } = req.body;
 
-        // Parse inputs
-        const monthlyIncome = parseFloat(income) || 0;
-        const monthlyRent = parseFloat(rent) || 0; // Not directly used in calculation but good for context
-        const totalEquity = parseFloat(equity) || 0;
-        const debts = parseFloat(monthlyDebts) || 0;
         const price = parseFloat(propertyPrice ? propertyPrice.replace(/[^0-9.-]+/g, "") : 0);
 
-        // Simple Affordability Logic
-        // 1. Max Monthly Payment (35% of net income minus debts)
-        const maxMonthlyPayment = (monthlyIncome - debts) * 0.35;
+        const result = calculateAffordability(income, equity, monthlyDebts, price);
 
-        // 2. Max Loan Amount
-        // Assuming 3.5% interest + 2.0% repayment = 5.5% annual rate
-        // Monthly rate factor = 5.5% / 12
-        const annualRate = 0.055;
-        const monthlyRate = annualRate / 12;
-
-        // Loan formula: Loan = Payment / MonthlyRate (Simplified for annuity)
-        // Actually, simpler rule of thumb for Germany: (MonthlyPayment * 12) / 0.055
-        const maxLoan = (maxMonthlyPayment * 12) / 0.055;
-
-        // 3. Max Property Price
-        const maxAffordablePrice = maxLoan + totalEquity;
-
-        // 4. Check Affordability
-        const isAffordable = maxAffordablePrice >= price;
-
-        // 5. Generate Message
+        // Generate Message
         let message = "";
-        if (isAffordable) {
+        if (result.isAffordable) {
             message = "Great news! Based on your income and equity, this property is within your budget.";
         } else {
-            const diff = price - maxAffordablePrice;
-            message = `This property is a bit above your calculated budget. You would need approximately €${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })} more in equity or a higher income to afford it comfortably.`;
+            message = `This property is a bit above your calculated budget. You would need approximately €${result.gap.toLocaleString(undefined, { maximumFractionDigits: 0 })} more in equity or a higher income to afford it comfortably.`;
         }
 
         res.json({
-            isAffordable,
-            maxAffordablePrice,
-            maxMonthlyPayment,
-            message,
-            details: {
-                maxLoan,
-                equity: totalEquity,
-                income: monthlyIncome,
-                debts
-            }
+            ...result,
+            message
         });
 
     } catch (error) {
