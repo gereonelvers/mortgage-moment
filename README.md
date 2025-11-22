@@ -1,18 +1,18 @@
 # Mortgage Moment 🏠
 
-A modern, intelligent mortgage affordability calculator with interactive property search. Find your dream home and understand what you can afford with real-time calculations powered by industry-leading APIs.
+In Munich, even high earners have given up on buying a home because they assume it is impossible. However, market data shows a different reality where rents are exploding while purchase prices in commuter towns like Garching are cooling. We realized there is a specific mathematical point where buying becomes cheaper than renting. We call this the Mortgage Moment. We built this tool to show tenants this data and break their resignation.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 
-## ✨ Features
+## ✨ User Journey
 
-- 🏠 **Smart Property Search** - Browse real estate listings with live data from ThinkImmo API
-- 💰 **Accurate Affordability Calculator** - Professional mortgage calculations via Interhyp API
-- 🗺️ **Interactive Maps** - Visualize properties on Google Maps with color-coded affordability indicators
-- 📊 **Detailed Financial Reports** - Comprehensive breakdown of loan terms, interest rates, and additional costs
-- 📧 **Email Integration** - Share property details via Brevo email service
-- 🎯 **Smart Filtering** - Properties automatically sorted to show affordable options first
-- 📱 **Responsive Design** - Works seamlessly on desktop and mobile devices
+Mortgage Moment is a physical-to-digital intervention.
+*The Trigger*: It starts with a physical demo poster (displayed on our whiteboard) featuring a QR code and the hook "72 neighbors bought here recently."
+*The Reality Check*: Users scan the code and enter just three numbers: Net Income, Rent, and Equity. No login required.
+*The Calculation*: Using the Interhyp Budget Calculation API, we determine exactly how much property the user can afford based on their income and equity. We compare this potential mortgage payment against their current rent to show the financial impact.
+*The Solution*: We display map-based listings fetched via the ThinkInno API that fit the user's calculated budget. If they can't afford Munich, we map out alternative opportunities in high-yield areas like Chemnitz.
+*Momo & Summary*: An AI voice assistant (Momo) answers questions about listings. Users can receive a detailed email summary of a property either by clicking the mail button or simply by asking Momo to "send me the info" during the call.
+
 
 ## 🚀 Quick Start
 
@@ -86,6 +86,8 @@ See [`.env.example`](./.env.example) for complete list.
 - Mortgage calculations by [Interhyp](https://www.interhyp.de/)
 - Built during HackaTUM 2025
 
+## Further Information
+For further information and explanation of the project, please visit the [Devpost entry](https://devpost.com/software/mortgage-moment).
 ---
 
-Made with ❤️ for homebuyers everywhere
+Made with ❤️ for potential homebuyers everywhere
