@@ -104,7 +104,7 @@ app.get('/api/properties', (req, res) => {
     }
 });
 
-const generateEmailTemplate = ({ userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage }) => {
+const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage }) => {
     return `
 <!DOCTYPE html>
 <html>
@@ -131,7 +131,7 @@ const generateEmailTemplate = ({ userEmail, propertyTitle, propertyAddress, prop
             <h1>Mortgage Moment</h1>
         </div>
         <div class="content">
-            <p>Hello,</p>
+            <p>Hello ${userName || 'there'},</p>
             <p>Thank you for your interest! We have received your inquiry regarding the following property:</p>
             
             <div class="property-card">
@@ -156,7 +156,7 @@ const generateEmailTemplate = ({ userEmail, propertyTitle, propertyAddress, prop
 };
 
 app.post('/api/send-email', async (req, res) => {
-    const { userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage } = req.body;
+    const { userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage } = req.body;
 
     if (!userEmail) {
         return res.status(400).json({ error: "User email is required" });
@@ -170,6 +170,7 @@ app.post('/api/send-email', async (req, res) => {
 
     try {
         const htmlContent = generateEmailTemplate({
+            userName,
             userEmail,
             propertyTitle,
             propertyAddress,
@@ -185,7 +186,7 @@ app.post('/api/send-email', async (req, res) => {
             to: [
                 {
                     email: userEmail,
-                    name: "User"
+                    name: userName || "User"
                 }
             ],
             subject: `Inquiry Confirmation: ${propertyTitle}`,
@@ -204,6 +205,25 @@ app.post('/api/send-email', async (req, res) => {
     } catch (error) {
         console.error("Error sending email:", error.response?.data || error.message);
         res.status(500).json({ error: "Failed to send email", details: error.response?.data });
+    }
+});
+
+app.post('/api/realtime-token', async (req, res) => {
+    try {
+        const response = await axios.post('https://api.openai.com/v1/realtime/sessions', {
+            model: "gpt-4o-realtime-preview",
+            voice: "alloy"
+        }, {
+            headers: {
+                "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+                "Content-Type": "application/json",
+            }
+        });
+
+        res.json({ secret: response.data.client_secret.value });
+    } catch (error) {
+        console.error("Error fetching realtime token:", error.response?.data || error.message);
+        res.status(500).json({ error: "Failed to get realtime token" });
     }
 });
 

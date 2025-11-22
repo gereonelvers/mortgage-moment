@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import CallScreen from '../components/CallScreen';
+import { useRealtimeVoice } from '../hooks/useRealtimeVoice';
 
 
 const PropertyDetailPage = () => {
@@ -12,8 +14,13 @@ const PropertyDetailPage = () => {
     const [displayProperty, setDisplayProperty] = useState(location.state?.property || null);
     const [loading, setLoading] = useState(!location.state?.property);
 
+
+
     // Extract user email from navigation state
-    const userEmail = location.state?.formData?.email;
+    const userData = location.state?.formData;
+    const userEmail = userData?.email;
+
+
 
     useEffect(() => {
         if (!displayProperty) {
@@ -92,6 +99,7 @@ const PropertyDetailPage = () => {
 
         try {
             const response = await axios.post('/api/send-email', {
+                userName: userData?.name,
                 userEmail: userEmail,
                 propertyTitle: displayProperty.title,
                 propertyAddress: `${displayProperty.address.street}, ${displayProperty.address.city}`,
@@ -100,17 +108,22 @@ const PropertyDetailPage = () => {
             });
             console.log('Email sent successfully! Response:', response);
             setEmailSent(true);
+            return true; // Return success for AI
         } catch (error) {
             console.error("Error sending email:", error);
             console.error("Error details:", error.response?.data);
             alert(`Failed to send email: ${error.response?.data?.message || error.message}`);
+            return false; // Return failure for AI
         } finally {
             setSending(false);
         }
     };
 
+    const { startCall, stopCall, status } = useRealtimeVoice(displayProperty, userData, handleEmail);
+
     return (
         <div className="property-detail-page" style={{ paddingBottom: 'var(--spacing-xl)' }}>
+            <CallScreen status={status} onHangup={stopCall} />
             {/* Image Header */}
             <div style={{ height: '60vh', width: '100%', overflow: 'hidden', position: 'relative' }}>
                 {displayProperty.images && displayProperty.images.length > 0 ? (
@@ -235,8 +248,31 @@ const PropertyDetailPage = () => {
                                         {sending ? 'Sending...' : 'Email Me About This Property'}
                                     </button>
                                 )}
+
+                                {/* Call AI Button */}
+                                <button
+                                    onClick={startCall}
+                                    style={{
+                                        width: '100%',
+                                        padding: 'var(--spacing-md)',
+                                        marginTop: 'var(--spacing-md)',
+                                        backgroundColor: '#2c3e50',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-md)',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '10px'
+                                    }}
+                                >
+                                    <span>📞</span> Call AI Agent
+                                </button>
+
                                 <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 'var(--spacing-sm)' }}>
-                                    Powered by Brevo
+                                    Powered by Brevo & OpenAI
                                 </p>
                             </div>
                         </div>

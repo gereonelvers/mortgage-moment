@@ -7,6 +7,7 @@ const LandingPage = () => {
     const location = searchParams.get('location') || 'your area';
 
     const [formData, setFormData] = useState({
+        name: '',
         email: '',
         income: '',
         rent: '',
@@ -66,6 +67,20 @@ const LandingPage = () => {
                     <div className="card">
                         <h2 style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)' }}>Get Your Personal Mortgage Moment</h2>
                         <form onSubmit={handleSubmit}>
+                            <div className="input-group">
+                                <label className="input-label" htmlFor="name">Your Name</label>
+                                <input
+                                    type="text"
+                                    id="name"
+                                    name="name"
+                                    className="input-field"
+                                    placeholder="John Doe"
+                                    required
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                />
+                            </div>
+
                             <div className="input-group">
                                 <label className="input-label" htmlFor="email">Email Address</label>
                                 <input
