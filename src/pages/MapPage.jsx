@@ -121,6 +121,14 @@ const MAX_MAP_MARKERS = 500;
 const affordableIcon = "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
 const unaffordableIcon = "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
 
+const defaultFormData = {
+    income: 0,
+    rent: 0,
+    equity: 0,
+    interestRate: 3.5,
+    repaymentRate: 2.0
+};
+
 const MapPage = () => {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: import.meta.env.VITE_MAPS_API_KEY
@@ -132,13 +140,10 @@ const MapPage = () => {
     const locationQuery = searchParams.get('location') || 'Munich';
 
     // Get form data from navigation state or use defaults
-    const formData = location.state?.formData || {
-        income: 0,
-        rent: 0,
-        equity: 0,
-        interestRate: 3.5,
-        repaymentRate: 2.0
-    };
+    // Memoize to prevent infinite loops in useEffect
+    const formData = useMemo(() => {
+        return location.state?.formData || defaultFormData;
+    }, [location.state]);
 
     const [properties, setProperties] = useState([]);
     const [filteredProperties, setFilteredProperties] = useState([]);
