@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preprocess": "node scripts/preprocess.js"
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.7",
     "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.6"

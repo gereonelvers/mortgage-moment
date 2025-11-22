@@ -9,8 +9,13 @@ const LandingPage = () => {
     const [formData, setFormData] = useState({
         email: '',
         income: '',
-        rent: ''
+        rent: '',
+        equity: '0',
+        interestRate: '3.5',
+        repaymentRate: '2.0'
     });
+
+    const [showAdvanced, setShowAdvanced] = useState(false);
 
     const handleChange = (e) => {
         setFormData({
@@ -40,7 +45,7 @@ const LandingPage = () => {
                 flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
-                background: 'linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%)'
+                background: 'linear-gradient(135deg, #F8F9FA 0%, #FFFFFF 100%)'
             }}>
                 <div className="container">
                     <h1 style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', color: 'var(--color-text-main)' }}>
@@ -102,6 +107,80 @@ const LandingPage = () => {
                                     onChange={handleChange}
                                 />
                             </div>
+
+                            {/* Advanced Settings Toggle */}
+                            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdvanced(!showAdvanced)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--color-text-secondary)',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        fontSize: '0.9rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                    }}
+                                >
+                                    {showAdvanced ? '▼' : '▶'} Advanced Settings (Optional)
+                                </button>
+                            </div>
+
+                            {/* Advanced Settings Fields */}
+                            {showAdvanced && (
+                                <div style={{
+                                    background: '#f8f9fa',
+                                    padding: 'var(--spacing-md)',
+                                    borderRadius: 'var(--radius-md)',
+                                    marginBottom: 'var(--spacing-md)',
+                                    border: '1px solid var(--color-border)'
+                                }}>
+                                    <div className="input-group">
+                                        <label className="input-label" htmlFor="equity">Equity / Eigenkapital (€)</label>
+                                        <input
+                                            type="number"
+                                            id="equity"
+                                            name="equity"
+                                            className="input-field"
+                                            placeholder="0"
+                                            value={formData.equity}
+                                            onChange={handleChange}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                        <div className="input-group">
+                                            <label className="input-label" htmlFor="interestRate">Interest Rate (%)</label>
+                                            <input
+                                                type="number"
+                                                id="interestRate"
+                                                name="interestRate"
+                                                className="input-field"
+                                                step="0.1"
+                                                placeholder="3.5"
+                                                value={formData.interestRate}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                        <div className="input-group">
+                                            <label className="input-label" htmlFor="repaymentRate">Repayment Rate (%)</label>
+                                            <input
+                                                type="number"
+                                                id="repaymentRate"
+                                                name="repaymentRate"
+                                                className="input-field"
+                                                step="0.1"
+                                                placeholder="2.0"
+                                                value={formData.repaymentRate}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 'var(--spacing-sm)' }}>
                                 Show Map
