@@ -205,15 +205,19 @@ const MapPage = () => {
                 setFilteredProperties(result.data);
 
                 // Set Budget Details from API
-                if (result.affordabilityOptions && result.affordabilityOptions.budgetDetails) {
-                    setBudgetDetails(result.affordabilityOptions.budgetDetails);
-                    // Update maxBudget state to match API if we want to sync them, 
-                    // but maxBudget is used for filtering, so maybe keep it as is or update it?
-                    // Let's update the display to use the API value if available.
-                    // If the API provides a max affordable price, use that for the maxBudget state
-                    // This will trigger a re-fetch if the API's maxBudget differs from the local calculation
-                    if (result.affordabilityOptions.budgetDetails.scoringResult.priceBuilding !== maxBudget) {
-                        setMaxBudget(Math.floor(result.affordabilityOptions.budgetDetails.scoringResult.priceBuilding));
+                if (result.affordabilityOptions) {
+                    // Merge the inner budgetDetails (if it exists) with the outer affordabilityOptions
+                    // so that both 'scoringResult' (from inner) and 'coach' (from outer) are accessible.
+                    const options = result.affordabilityOptions;
+                    const combined = {
+                        ...options,
+                        ...(options.budgetDetails || {})
+                    };
+                    setBudgetDetails(combined);
+
+                    // Update maxBudget state to match API if we want to sync them
+                    if (combined.scoringResult && combined.scoringResult.priceBuilding !== maxBudget) {
+                        setMaxBudget(Math.floor(combined.scoringResult.priceBuilding));
                     }
                 } else {
                     setBudgetDetails(null); // Clear budget details if not provided by API
@@ -333,7 +337,7 @@ const MapPage = () => {
                         )}
                         {(maxBudget > 0 || budgetDetails) && (
                             <div
-                                onClick={() => budgetDetails && setShowBudgetModal(true)}
+                                onClick={() => budgetDetails && budgetDetails.scoringResult && setShowBudgetModal(true)}
                                 style={{
                                     background: filteredProperties.some(p => p.affordability && p.affordability.isAffordable) ? '#27ae60' : '#e74c3c',
                                     color: 'white',
@@ -341,18 +345,18 @@ const MapPage = () => {
                                     borderRadius: 'var(--radius-full)',
                                     fontSize: '0.9rem',
                                     fontWeight: 'bold',
-                                    cursor: budgetDetails ? 'pointer' : 'default'
+                                    cursor: (budgetDetails && budgetDetails.scoringResult) ? 'pointer' : 'default'
                                 }}
                             >
-                                Max Budget: €{budgetDetails ? Math.floor(budgetDetails.scoringResult.priceBuilding).toLocaleString() : maxBudget.toLocaleString()}
-                                {budgetDetails && <span style={{ marginLeft: '5px', fontSize: '0.8rem' }}>ℹ️</span>}
+                                Max Budget: €{(budgetDetails && budgetDetails.scoringResult) ? Math.floor(budgetDetails.scoringResult.priceBuilding).toLocaleString() : maxBudget.toLocaleString()}
+                                {budgetDetails && budgetDetails.scoringResult && <span style={{ marginLeft: '5px', fontSize: '0.8rem' }}>ℹ️</span>}
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* Budget Details Modal */}
-                {showBudgetModal && budgetDetails && (
+                {showBudgetModal && budgetDetails && budgetDetails.scoringResult && (
                     <div style={{
                         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                         backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
