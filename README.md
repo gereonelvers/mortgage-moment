@@ -4,6 +4,8 @@ In Munich, even high earners have given up on buying a home because they assume 
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 
+[Check out the live demo 🚀](https://mortgage-moment.com/?location=Garching)
+
 ## ✨ User Journey
 
 Mortgage Moment is a physical-to-digital intervention.
