@@ -1,16 +1,91 @@
-# React + Vite
+# Mortgage Moment 🏠
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, intelligent mortgage affordability calculator with interactive property search. Find your dream home and understand what you can afford with real-time calculations powered by industry-leading APIs.
 
-Currently, two official plugins are available:
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## React Compiler
+- 🏠 **Smart Property Search** - Browse real estate listings with live data from ThinkImmo API
+- 💰 **Accurate Affordability Calculator** - Professional mortgage calculations via Interhyp API
+- 🗺️ **Interactive Maps** - Visualize properties on Google Maps with color-coded affordability indicators
+- 📊 **Detailed Financial Reports** - Comprehensive breakdown of loan terms, interest rates, and additional costs
+- 📧 **Email Integration** - Share property details via Brevo email service
+- 🎯 **Smart Filtering** - Properties automatically sorted to show affordable options first
+- 📱 **Responsive Design** - Works seamlessly on desktop and mobile devices
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 Quick Start
 
-## Expanding the ESLint configuration
+```bash
+# Install dependencies
+npm install
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+# Copy environment template
+cp .env.example .env
+
+# Add your API keys to .env
+
+# Run the application
+npm run dev
+```
+
+Visit `http://localhost:5173` to see the app in action!
+
+## 📚 Documentation
+
+- **[Setup Guide](./SETUP.md)** - Detailed installation and configuration instructions
+- **[Environment Variables](./.env.example)** - Required API keys and configuration
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **React** - UI framework
+- **Vite** - Build tool and dev server
+- **React Router** - Client-side routing
+- **Google Maps API** - Interactive property maps
+
+### Backend
+- **Node.js + Express** - REST API server
+- **Axios** - HTTP client for external APIs
+
+### External APIs
+- **ThinkImmo API** - Real estate property data
+- **Interhyp API** - Mortgage affordability calculations
+- **Google Maps API** - Geocoding and map visualization
+- **Brevo API** - Transactional email service
+
+## 🌐 Deployment
+
+This application is optimized for deployment on **[Railway](https://railway.app/)**. See the [Setup Guide](./SETUP.md) for detailed deployment instructions.
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new)
+
+## 📦 Scripts
+
+```bash
+npm run dev        # Start development server (frontend + backend)
+npm run build      # Build for production
+npm run server     # Run backend server only
+npm start          # Start production server
+```
+
+## 🔑 Environment Variables
+
+Required environment variables:
+
+- `VITE_MAPS_API_KEY` - Google Maps API key
+- `VITE_BREVO_API_KEY` - Brevo email service API key
+- `VITE_SENDER_EMAIL` - Email sender address
+- `VITE_SENDER_NAME` - Email sender name
+
+See [`.env.example`](./.env.example) for complete list.
+
+## 🙏 Acknowledgments
+
+- Property data powered by [ThinkImmo](https://thinkimmo.de/)
+- Mortgage calculations by [Interhyp](https://www.interhyp.de/)
+- Built during HackaTUM 2025
+
+---
+
+Made with ❤️ for homebuyers everywhere
