@@ -190,7 +190,7 @@ const MapPage = () => {
                 // Construct query parameters
                 const params = new URLSearchParams();
                 // Use the locally calculated maxBudget for the initial API call
-                if (maxBudget > 0) params.append('maxPrice', maxBudget);
+                // if (maxBudget > 0) params.append('maxPrice', maxBudget);
                 if (locationQuery) params.append('location', locationQuery);
                 if (formData.income) params.append('income', formData.income);
                 if (formData.equity) params.append('equity', formData.equity);
@@ -335,7 +335,7 @@ const MapPage = () => {
                             <div
                                 onClick={() => budgetDetails && setShowBudgetModal(true)}
                                 style={{
-                                    background: 'var(--color-text-secondary)',
+                                    background: filteredProperties.some(p => p.affordability && p.affordability.isAffordable) ? '#27ae60' : '#e74c3c',
                                     color: 'white',
                                     padding: 'var(--spacing-sm) var(--spacing-md)',
                                     borderRadius: 'var(--radius-full)',
@@ -493,6 +493,29 @@ const MapPage = () => {
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+
+                                {/* Call Momo Button */}
+                                <div style={{ marginTop: 'var(--spacing-xl)', textAlign: 'center', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+                                    <p style={{ marginBottom: '15px', color: '#666' }}>Need more personalized advice? Talk to our AI Mortgage Expert.</p>
+                                    <button
+                                        disabled
+                                        style={{
+                                            background: '#bdc3c7',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '12px 24px',
+                                            borderRadius: '50px',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bold',
+                                            cursor: 'not-allowed',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <span>📞</span> Call Momo (Coming Soon)
+                                    </button>
                                 </div>
                             </div>
                         )}
