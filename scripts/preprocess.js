@@ -121,5 +121,3 @@ const processData = async () => {
         process.exit(1);
     }
 };
-
-processData();
