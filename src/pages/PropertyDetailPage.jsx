@@ -1,60 +1,109 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 
+
 const PropertyDetailPage = () => {
+    const { id } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
-    const property = location.state?.property;
     const [emailSent, setEmailSent] = useState(false);
     const [sending, setSending] = useState(false);
+    const [displayProperty, setDisplayProperty] = useState(location.state?.property || null);
+    const [loading, setLoading] = useState(!location.state?.property);
 
-    // Fallback if property is not passed via state (e.g. direct link)
-    const propertyData = property || {
-        id: 'mock-id',
-        title: 'Beautiful Apartment (Mock)',
-        address: {
-            street: 'Musterstraße 1',
-            postcode: '80331',
-            city: 'München',
-            lat: 48.1374,
-            lon: 11.5755
-        },
-        buyingPrice: 450000,
-        pricePerSqm: 8181,
-        rooms: 2,
-        squareMeter: 55,
-        floor: 3,
-        images: [{ originalUrl: 'https://placehold.co/1200x800?text=Mock+Property' }]
-    };
+    // Extract user email from navigation state
+    const userEmail = location.state?.formData?.email;
 
-    // Use propertyData instead of property
-    const displayProperty = propertyData;
+    useEffect(() => {
+        if (!displayProperty) {
+            const fetchProperty = async () => {
+                try {
+                    const response = await fetch('/properties.min.json');
+                    const data = await response.json();
+                    const foundItem = data.find(p => p.id === id);
+
+                    if (foundItem) {
+                        setDisplayProperty({
+                            id: foundItem.id,
+                            title: foundItem.t,
+                            address: {
+                                lat: foundItem.lat,
+                                lon: foundItem.lng,
+                                street: foundItem.l,
+                                postcode: foundItem.pc,
+                                city: foundItem.c
+                            },
+                            buyingPrice: foundItem.p,
+                            pricePerSqm: foundItem.s ? Math.round(foundItem.p / foundItem.s) : 0,
+                            rooms: foundItem.r,
+                            squareMeter: foundItem.s,
+                            images: foundItem.imgs.map(url => ({ originalUrl: url })),
+                            floor: 0
+                        });
+                    } else {
+                        // Fallback if not found
+                        setDisplayProperty({
+                            id: 'mock-id',
+                            title: 'Property Not Found',
+                            address: {
+                                street: 'Unknown',
+                                postcode: '00000',
+                                city: 'Unknown',
+                                lat: 48.1374,
+                                lon: 11.5755
+                            },
+                            buyingPrice: 0,
+                            pricePerSqm: 0,
+                            rooms: 0,
+                            squareMeter: 0,
+                            floor: 0,
+                            images: []
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error loading property:", error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchProperty();
+        }
+    }, [id, displayProperty]);
+
+    if (loading) {
+        return <div>Loading...</div>;
+    }
 
     if (!displayProperty) {
-        // Should not happen with fallback
-        return <div>Loading...</div>;
+        return <div>Property not found</div>;
     }
 
     // Mock Fit Score
     const fitScore = Math.floor(Math.random() * 20) + 80; // 80-99
 
     const handleEmail = async () => {
+        if (!userEmail) {
+            alert('Please enter your email address on the landing page first.');
+            return;
+        }
+
         setSending(true);
+
         try {
-            await axios.post('https://api.brevo.com/v3/smtp/email', {
+            const response = await axios.post('https://api.brevo.com/v3/smtp/email', {
                 sender: {
-                    name: "Mortgage Moment",
-                    email: "info@mortgagemoment.com"
+                    name: import.meta.env.VITE_SENDER_NAME || "Mortgage Moment",
+                    email: import.meta.env.VITE_SENDER_EMAIL || "info@mortgagemoment.com"
                 },
                 to: [
                     {
-                        email: "testmail@example.com", // In real app, this would be the user's email or agent's email
+                        email: userEmail,
                         name: "User"
                     }
                 ],
                 subject: `Inquiry about ${displayProperty.title}`,
-                htmlContent: `<html><head></head><body><p>Hello,</p><p>I am interested in the property at ${displayProperty.address.street}, ${displayProperty.address.city}.</p><p>Price: €${displayProperty.buyingPrice}</p></body></html>`
+                htmlContent: `<html><head></head><body><p>Hello,</p><p>I am interested in the property at ${displayProperty.address.street}, ${displayProperty.address.city}.</p><p>Price: €${displayProperty.buyingPrice.toLocaleString()}</p></body></html>`
             }, {
                 headers: {
                     'accept': 'application/json',
@@ -62,11 +111,12 @@ const PropertyDetailPage = () => {
                     'content-type': 'application/json'
                 }
             });
+            console.log('Email sent successfully! Response:', response);
             setEmailSent(true);
         } catch (error) {
             console.error("Error sending email:", error);
-            // For demo purposes, we'll simulate success even if API fails (due to invalid key)
-            setEmailSent(true);
+            console.error("Error details:", error.response?.data);
+            alert(`Failed to send email: ${error.response?.data?.message || error.message}`);
         } finally {
             setSending(false);
         }
@@ -158,31 +208,35 @@ const PropertyDetailPage = () => {
                         <div>
                             {/* Fit Score Box */}
                             <div style={{
-                                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                                background: 'linear-gradient(135deg, #F8F9FA 0%, #E1E8ED 100%)',
                                 padding: 'var(--spacing-lg)',
                                 borderRadius: 'var(--radius-lg)',
                                 textAlign: 'center',
                                 marginBottom: 'var(--spacing-lg)'
                             }}>
-                                <h4 style={{ color: '#1565c0', marginBottom: 'var(--spacing-sm)' }}>Mortgage Moment Score</h4>
+                                <h4 style={{ color: '#636E72', marginBottom: 'var(--spacing-sm)' }}>Mortgage Moment Score</h4>
                                 <div style={{
                                     fontSize: '3rem',
                                     fontWeight: 'bold',
-                                    color: '#0d47a1',
+                                    color: '#2D3436',
                                     marginBottom: 'var(--spacing-xs)'
                                 }}>
                                     {fitScore}/100
                                 </div>
-                                <p style={{ fontSize: '0.9rem', color: '#1976d2' }}>
+                                <p style={{ fontSize: '0.9rem', color: '#636E72' }}>
                                     Excellent fit for your profile!
                                 </p>
                             </div>
 
                             {/* Email Button */}
                             <div style={{ textAlign: 'center' }}>
-                                {emailSent ? (
+                                {!userEmail ? (
+                                    <div style={{ padding: 'var(--spacing-md)', background: '#fff3cd', color: '#856404', borderRadius: 'var(--radius-md)', fontSize: '0.9rem' }}>
+                                        Enter your email on the landing page to receive property details
+                                    </div>
+                                ) : emailSent ? (
                                     <div style={{ padding: 'var(--spacing-md)', background: '#e8f5e9', color: '#2e7d32', borderRadius: 'var(--radius-md)' }}>
-                                        Email sent successfully!
+                                        Email sent successfully to {userEmail}!
                                     </div>
                                 ) : (
                                     <button
