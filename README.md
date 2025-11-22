@@ -86,7 +86,8 @@ See [`.env.example`](./.env.example) for complete list.
 - Mortgage calculations by [Interhyp](https://www.interhyp.de/)
 - Built during HackaTUM 2025
 
-## Further Information
+## Devpost
+
 For further information and explanation of the project, please visit the [Devpost entry](https://devpost.com/software/mortgage-moment).
 ---
 
