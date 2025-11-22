@@ -91,25 +91,12 @@ const PropertyDetailPage = () => {
         setSending(true);
 
         try {
-            const response = await axios.post('https://api.brevo.com/v3/smtp/email', {
-                sender: {
-                    name: import.meta.env.VITE_SENDER_NAME || "Mortgage Moment",
-                    email: import.meta.env.VITE_SENDER_EMAIL || "info@mortgagemoment.com"
-                },
-                to: [
-                    {
-                        email: userEmail,
-                        name: "User"
-                    }
-                ],
-                subject: `Inquiry about ${displayProperty.title}`,
-                htmlContent: `<html><head></head><body><p>Hello,</p><p>I am interested in the property at ${displayProperty.address.street}, ${displayProperty.address.city}.</p><p>Price: €${displayProperty.buyingPrice.toLocaleString()}</p></body></html>`
-            }, {
-                headers: {
-                    'accept': 'application/json',
-                    'api-key': import.meta.env.VITE_BREVO_API_KEY,
-                    'content-type': 'application/json'
-                }
+            const response = await axios.post('/api/send-email', {
+                userEmail: userEmail,
+                propertyTitle: displayProperty.title,
+                propertyAddress: `${displayProperty.address.street}, ${displayProperty.address.city}`,
+                propertyPrice: displayProperty.buyingPrice.toLocaleString(),
+                propertyImage: displayProperty.images && displayProperty.images.length > 0 ? displayProperty.images[0].originalUrl : null
             });
             console.log('Email sent successfully! Response:', response);
             setEmailSent(true);

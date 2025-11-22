@@ -172,30 +172,19 @@ const MapPage = () => {
 
     useEffect(() => {
         const fetchProperties = async () => {
+            setLoading(true);
             try {
-                const response = await fetch('/properties.min.json');
-                const data = await response.json();
+                // Construct query parameters
+                const params = new URLSearchParams();
+                if (maxBudget > 0) params.append('maxPrice', maxBudget);
+                // Add other filters if needed, e.g. locationQuery (though server doesn't support it yet, we can add it later)
 
-                // Map minified data to full structure
-                const validProperties = data.map(item => ({
-                    id: item.id,
-                    title: item.t,
-                    address: {
-                        lat: item.lat,
-                        lon: item.lng,
-                        street: item.l,
-                        postcode: item.pc,
-                        city: item.c
-                    },
-                    buyingPrice: item.p,
-                    pricePerSqm: item.s ? Math.round(item.p / item.s) : 0,
-                    rooms: item.r,
-                    squareMeter: item.s,
-                    images: item.imgs.map(url => ({ originalUrl: url })),
-                    floor: 0
-                }));
+                const response = await fetch(`/api/properties?${params.toString()}`);
+                const result = await response.json();
 
-                setProperties(validProperties);
+                // Server now returns mapped data
+                setProperties(result.data);
+                setFilteredProperties(result.data);
             } catch (error) {
                 console.error("Error loading properties:", error);
             } finally {
@@ -204,14 +193,11 @@ const MapPage = () => {
         };
 
         fetchProperties();
-    }, [locationQuery]);
+    }, [locationQuery, maxBudget]); // Re-fetch when maxBudget changes
 
-    // Apply filtering
-    useEffect(() => {
-        const filtered = properties.filter(p => maxBudget === 0 || p.buyingPrice <= maxBudget);
-        setFilteredProperties(filtered);
-        setVisibleCount(12); // Reset pagination on filter change
-    }, [properties, maxBudget]);
+    // Removed client-side filtering useEffect since we now filter on the server
+    // But we might want to keep setFilteredProperties if we add other client-side filters later.
+    // For now, we set it directly in fetchProperties.
 
     // Memoize map markers to prevent unnecessary re-renders
     const mapMarkers = useMemo(() => {
