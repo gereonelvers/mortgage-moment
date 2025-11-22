@@ -29,7 +29,16 @@ try {
         properties = JSON.parse(rawData);
         console.log(`Loaded ${properties.length} properties.`);
     } else {
-        console.warn(`Data file not found at ${DATA_FILE}. Please run 'npm run preprocess' first.`);
+        // Fallback to dist folder (production)
+        const DIST_DATA_FILE = path.join(__dirname, '../dist/properties.min.json');
+        if (fs.existsSync(DIST_DATA_FILE)) {
+            console.log(`Loading properties from ${DIST_DATA_FILE}...`);
+            const rawData = fs.readFileSync(DIST_DATA_FILE, 'utf8');
+            properties = JSON.parse(rawData);
+            console.log(`Loaded ${properties.length} properties.`);
+        } else {
+            console.warn(`Data file not found at ${DATA_FILE} or ${DIST_DATA_FILE}. Please run 'npm run preprocess' first.`);
+        }
     }
 } catch (error) {
     console.error("Error loading properties:", error);
@@ -62,18 +71,6 @@ app.get('/api/properties', (req, res) => {
         const offsetVal = parseInt(offset) || 0;
 
         const paginatedResults = results.slice(offsetVal, offsetVal + limitVal);
-
-        // Map to frontend expected format if needed, or send as is (minified)
-        // Sending minified to save bandwidth, frontend can map it.
-        // But wait, the frontend expects mapped data. Let's map it here to be cleaner?
-        // The plan said "Handle server-side filtering".
-        // Let's send the minified structure to keep the payload small, 
-        // but we can also map it here if we want a cleaner API. 
-        // For now, let's stick to sending the data structure we have, 
-        // but maybe we should map it to the "nice" format so the frontend is dumber?
-        // Actually, the current frontend maps it. Let's keep the mapping in the frontend for now 
-        // to minimize changes, OR move mapping here. 
-        // Moving mapping here is better for "Architecture Rework".
 
         const mappedResults = paginatedResults.map(item => ({
             id: item.id,
@@ -209,6 +206,20 @@ app.post('/api/send-email', async (req, res) => {
         res.status(500).json({ error: "Failed to send email", details: error.response?.data });
     }
 });
+
+// Serve static files from the React app
+const DIST_DIR = path.join(__dirname, '../dist');
+if (fs.existsSync(DIST_DIR)) {
+    app.use(express.static(DIST_DIR));
+
+    // The "catchall" handler: for any request that doesn't
+    // match one above, send back React's index.html file.
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(DIST_DIR, 'index.html'));
+    });
+} else {
+    console.warn("Warning: ../dist directory not found. Frontend will not be served.");
+}
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

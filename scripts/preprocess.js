@@ -42,6 +42,18 @@ const geocodeAddress = async (address) => {
 
 const processData = async () => {
     try {
+        // Check if we should skip processing
+        const force = process.argv.includes('--force');
+        if (!force && fs.existsSync(OUTPUT_FILE)) {
+            const inputStats = fs.statSync(INPUT_FILE);
+            const outputStats = fs.statSync(OUTPUT_FILE);
+
+            if (outputStats.mtime > inputStats.mtime) {
+                console.log(`Data is up to date. Skipping preprocessing. (Use --force to override)`);
+                return;
+            }
+        }
+
         console.log(`Reading from ${INPUT_FILE}...`);
         const rawData = fs.readFileSync(INPUT_FILE, 'utf8');
         const rawProperties = JSON.parse(rawData);
