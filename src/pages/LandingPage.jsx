@@ -50,7 +50,7 @@ const LandingPage = () => {
             }}>
                 <div className="container">
                     <h1 style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', color: 'var(--color-text-main)' }}>
-                        <span style={{ color: 'var(--color-primary)' }}>{Math.floor(Math.random() * 50) + 12} people</span> have bought a house in {location} in the past six months.
+                        <span style={{ color: 'var(--color-primary)' }}>72 people</span> have bought a house in {location} in the past six months.
                     </h1>
                     <p style={{ fontSize: '1.5rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
                         See if this is right for you.
@@ -123,6 +123,20 @@ const LandingPage = () => {
                                 />
                             </div>
 
+                            <div className="input-group">
+                                <label className="input-label" htmlFor="equity">Equity / Eigenkapital (€)</label>
+                                <input
+                                    type="number"
+                                    id="equity"
+                                    name="equity"
+                                    className="input-field"
+                                    placeholder="e.g. 50000"
+                                    required
+                                    value={formData.equity}
+                                    onChange={handleChange}
+                                />
+                            </div>
+
                             {/* Advanced Settings Toggle */}
                             <div style={{ marginBottom: 'var(--spacing-md)' }}>
                                 <button
@@ -153,19 +167,6 @@ const LandingPage = () => {
                                     marginBottom: 'var(--spacing-md)',
                                     border: '1px solid var(--color-border)'
                                 }}>
-                                    <div className="input-group">
-                                        <label className="input-label" htmlFor="equity">Equity / Eigenkapital (€)</label>
-                                        <input
-                                            type="number"
-                                            id="equity"
-                                            name="equity"
-                                            className="input-field"
-                                            placeholder="0"
-                                            value={formData.equity}
-                                            onChange={handleChange}
-                                        />
-                                    </div>
-
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                                         <div className="input-group">
                                             <label className="input-label" htmlFor="interestRate">Interest Rate (%)</label>

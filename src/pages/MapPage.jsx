@@ -117,6 +117,10 @@ const clusterOptions = {
 // Maximum markers to display on map for performance
 const MAX_MAP_MARKERS = 500;
 
+// Marker icons
+const affordableIcon = "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+const unaffordableIcon = "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
+
 const MapPage = () => {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: import.meta.env.VITE_MAPS_API_KEY
@@ -141,11 +145,13 @@ const MapPage = () => {
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [loading, setLoading] = useState(true);
     const [maxBudget, setMaxBudget] = useState(0);
+    const [budgetDetails, setBudgetDetails] = useState(null);
+    const [showBudgetModal, setShowBudgetModal] = useState(false);
 
     // Pagination State
     const [visibleCount, setVisibleCount] = useState(12);
 
-    // Calculate Max Budget
+    // Calculate Max Budget (Local Fallback)
     useEffect(() => {
         if (formData.income) {
             const monthlyNetIncome = parseFloat(formData.income);
@@ -170,14 +176,20 @@ const MapPage = () => {
         }
     }, [formData]);
 
+    const [mapCenter, setMapCenter] = useState(defaultCenter);
+
     useEffect(() => {
         const fetchProperties = async () => {
             setLoading(true);
             try {
                 // Construct query parameters
                 const params = new URLSearchParams();
+                // Use the locally calculated maxBudget for the initial API call
                 if (maxBudget > 0) params.append('maxPrice', maxBudget);
-                // Add other filters if needed, e.g. locationQuery (though server doesn't support it yet, we can add it later)
+                if (locationQuery) params.append('location', locationQuery);
+                if (formData.income) params.append('income', formData.income);
+                if (formData.equity) params.append('equity', formData.equity);
+                if (formData.rent) params.append('debts', formData.rent); // Assuming rent is a debt/obligation
 
                 const response = await fetch(`/api/properties?${params.toString()}`);
                 const result = await response.json();
@@ -185,6 +197,39 @@ const MapPage = () => {
                 // Server now returns mapped data
                 setProperties(result.data);
                 setFilteredProperties(result.data);
+
+                // Set Budget Details from API
+                if (result.affordabilityOptions && result.affordabilityOptions.budgetDetails) {
+                    setBudgetDetails(result.affordabilityOptions.budgetDetails);
+                    // Update maxBudget state to match API if we want to sync them, 
+                    // but maxBudget is used for filtering, so maybe keep it as is or update it?
+                    // Let's update the display to use the API value if available.
+                    // If the API provides a max affordable price, use that for the maxBudget state
+                    // This will trigger a re-fetch if the API's maxBudget differs from the local calculation
+                    if (result.affordabilityOptions.budgetDetails.scoringResult.priceBuilding !== maxBudget) {
+                        setMaxBudget(Math.floor(result.affordabilityOptions.budgetDetails.scoringResult.priceBuilding));
+                    }
+                } else {
+                    setBudgetDetails(null); // Clear budget details if not provided by API
+                }
+
+                // Geocode the search location to center the map
+                if (window.google && locationQuery) {
+                    const geocoder = new window.google.maps.Geocoder();
+                    geocoder.geocode({ address: locationQuery }, (results, status) => {
+                        if (status === 'OK' && results[0]) {
+                            setMapCenter(results[0].geometry.location);
+                        } else {
+                            // Fallback: if properties found, center on first property
+                            if (result.data.length > 0 && result.data[0].address) {
+                                setMapCenter({ lat: result.data[0].address.lat, lng: result.data[0].address.lon });
+                            }
+                        }
+                    });
+                } else if (result.data.length > 0 && result.data[0].address) {
+                    setMapCenter({ lat: result.data[0].address.lat, lng: result.data[0].address.lon });
+                }
+
             } catch (error) {
                 console.error("Error loading properties:", error);
             } finally {
@@ -193,7 +238,7 @@ const MapPage = () => {
         };
 
         fetchProperties();
-    }, [locationQuery, maxBudget]); // Re-fetch when maxBudget changes
+    }, [locationQuery, maxBudget, formData, isLoaded]); // Added isLoaded to ensure google object is available
 
     // Removed client-side filtering useEffect since we now filter on the server
     // But we might want to keep setFilteredProperties if we add other client-side filters later.
@@ -222,7 +267,7 @@ const MapPage = () => {
             <div style={{ height: '50vh', width: '100%', position: 'relative' }}>
                 <GoogleMap
                     mapContainerStyle={containerStyle}
-                    center={filteredProperties.length > 0 && filteredProperties[0].address ? { lat: filteredProperties[0].address.lat, lng: filteredProperties[0].address.lon } : defaultCenter}
+                    center={mapCenter}
                     zoom={12}
                     options={{ styles: mapStyles }}
                 >
@@ -235,6 +280,7 @@ const MapPage = () => {
                                         position={{ lat: property.address.lat, lng: property.address.lon }}
                                         clusterer={clusterer}
                                         onClick={() => setSelectedProperty(property)}
+                                        icon={property.affordability ? (property.affordability.isAffordable ? affordableIcon : unaffordableIcon) : undefined}
                                     />
                                 ))}
                             </>
@@ -249,6 +295,15 @@ const MapPage = () => {
                             <div style={{ padding: '5px', cursor: 'pointer' }} onClick={() => handlePropertyClick(selectedProperty)}>
                                 <h4 style={{ margin: '0 0 5px' }}>{selectedProperty.title}</h4>
                                 <p style={{ margin: 0 }}>€{selectedProperty.buyingPrice.toLocaleString()}</p>
+                                {selectedProperty.affordability && (
+                                    <p style={{
+                                        margin: '5px 0 0',
+                                        color: selectedProperty.affordability.isAffordable ? '#27ae60' : '#e74c3c',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {selectedProperty.affordability.isAffordable ? 'Affordable' : 'Over Budget'}
+                                    </p>
+                                )}
                             </div>
                         </InfoWindow>
                     )}
@@ -270,20 +325,74 @@ const MapPage = () => {
                                 Showing {MAX_MAP_MARKERS} of {filteredProperties.length} on map
                             </div>
                         )}
-                        {maxBudget > 0 && (
-                            <div style={{
-                                background: 'var(--color-text-secondary)',
-                                color: 'white',
-                                padding: 'var(--spacing-sm) var(--spacing-md)',
-                                borderRadius: 'var(--radius-full)',
-                                fontSize: '0.9rem',
-                                fontWeight: 'bold'
-                            }}>
-                                Max Budget: €{maxBudget.toLocaleString()}
+                        {(maxBudget > 0 || budgetDetails) && (
+                            <div
+                                onClick={() => budgetDetails && setShowBudgetModal(true)}
+                                style={{
+                                    background: 'var(--color-text-secondary)',
+                                    color: 'white',
+                                    padding: 'var(--spacing-sm) var(--spacing-md)',
+                                    borderRadius: 'var(--radius-full)',
+                                    fontSize: '0.9rem',
+                                    fontWeight: 'bold',
+                                    cursor: budgetDetails ? 'pointer' : 'default'
+                                }}
+                            >
+                                Max Budget: €{budgetDetails ? Math.floor(budgetDetails.scoringResult.priceBuilding).toLocaleString() : maxBudget.toLocaleString()}
+                                {budgetDetails && <span style={{ marginLeft: '5px', fontSize: '0.8rem' }}>ℹ️</span>}
                             </div>
                         )}
                     </div>
                 </div>
+
+                {/* Budget Details Modal */}
+                {showBudgetModal && budgetDetails && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+                    }} onClick={() => setShowBudgetModal(false)}>
+                        <div style={{
+                            backgroundColor: 'white', padding: '20px', borderRadius: '8px', maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto'
+                        }} onClick={e => e.stopPropagation()}>
+                            <h2 style={{ marginTop: 0 }}>Affordability Report</h2>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                                <div><strong>Max Property Price:</strong></div>
+                                <div>€{budgetDetails.scoringResult.priceBuilding.toLocaleString()}</div>
+
+                                <div><strong>Max Loan Amount:</strong></div>
+                                <div>€{budgetDetails.scoringResult.loanAmount.toLocaleString()}</div>
+
+                                <div><strong>Equity Used:</strong></div>
+                                <div>€{budgetDetails.scoringResult.equityCash.toLocaleString()}</div>
+
+                                <div><strong>Monthly Payment:</strong></div>
+                                <div>€{budgetDetails.scoringResult.monthlyPayment.toLocaleString()}</div>
+
+                                <div><strong>Interest Rate:</strong></div>
+                                <div>{budgetDetails.scoringResult.effectiveInterest}%</div>
+                            </div>
+
+                            <h3>Additional Costs</h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                <div>Notary ({budgetDetails.additionalCosts.additionalCostsPercentage.notary}%):</div>
+                                <div>€{budgetDetails.additionalCosts.additionalCostsValue.notary.toLocaleString()}</div>
+
+                                <div>Tax ({budgetDetails.additionalCosts.additionalCostsPercentage.tax}%):</div>
+                                <div>€{budgetDetails.additionalCosts.additionalCostsValue.tax.toLocaleString()}</div>
+
+                                <div>Broker ({budgetDetails.additionalCosts.additionalCostsPercentage.broker}%):</div>
+                                <div>€{budgetDetails.additionalCosts.additionalCostsValue.broker.toLocaleString()}</div>
+                            </div>
+
+                            <button
+                                onClick={() => setShowBudgetModal(false)}
+                                style={{ marginTop: '20px', padding: '10px 20px', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {loading ? (
                     <p>Loading properties...</p>
@@ -293,7 +402,27 @@ const MapPage = () => {
                             {filteredProperties
                                 .slice(0, visibleCount)
                                 .map(property => (
-                                    <div key={property.id} className="card" onClick={() => handlePropertyClick(property)} style={{ cursor: 'pointer' }}>
+                                    <div key={property.id} className="card" onClick={() => handlePropertyClick(property)} style={{
+                                        cursor: 'pointer',
+                                        border: property.affordability ? (property.affordability.isAffordable ? '2px solid #27ae60' : '2px solid #e74c3c') : '1px solid #eee',
+                                        position: 'relative'
+                                    }}>
+                                        {property.affordability && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '10px',
+                                                right: '10px',
+                                                background: property.affordability.isAffordable ? '#27ae60' : '#e74c3c',
+                                                color: 'white',
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 'bold',
+                                                zIndex: 1
+                                            }}>
+                                                {property.affordability.isAffordable ? 'Affordable' : 'Over Budget'}
+                                            </div>
+                                        )}
                                         {property.images && property.images.length > 0 ? (
                                             <img
                                                 src={property.images[0].originalUrl}
@@ -335,7 +464,7 @@ const MapPage = () => {
                     </>
                 )}
             </div>
-        </div >
+        </div>
     );
 };
 

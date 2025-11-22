@@ -44,40 +44,43 @@ try {
     console.error("Error loading properties:", error);
 }
 
-// Helper function for affordability
-const calculateAffordability = (income, equity, debts, propertyPrice) => {
-    const monthlyIncome = parseFloat(income) || 0;
-    const totalEquity = parseFloat(equity) || 0;
-    const monthlyDebts = parseFloat(debts) || 0;
-    const price = parseFloat(propertyPrice) || 0;
+// Helper to fetch max buying power from Interhyp
+const fetchMaxBuyingPower = async (income, equity, debts) => {
+    try {
+        const monthlyIncome = parseFloat(income) || 0;
+        const monthlyDebts = parseFloat(debts) || 0;
+        const equityCash = parseFloat(equity) || 0;
 
-    // 1. Max Monthly Payment (35% of net income minus debts)
-    const maxMonthlyPayment = (monthlyIncome - monthlyDebts) * 0.35;
+        // Estimate monthly rate available for mortgage (e.g., 35% of net income minus debts)
+        const monthlyRate = Math.max(0, (monthlyIncome - monthlyDebts) * 0.35);
 
-    // 2. Max Loan Amount
-    // Assuming 3.5% interest + 2.0% repayment = 5.5% annual rate
-    const annualRate = 0.055;
-    const maxLoan = (maxMonthlyPayment * 12) / annualRate;
+        if (monthlyRate <= 0) return null;
 
-    // 3. Max Property Price
-    const maxAffordablePrice = maxLoan + totalEquity;
+        const response = await axios.post('https://www.interhyp.de/customer-generation/budget/calculateMaxBuyingPower', {
+            "monthlyRate": monthlyRate,
+            "equityCash": equityCash,
+            "federalState": "DE-BY", // Default to Bayern
+            "amortisation": 2.0,
+            "fixedPeriod": 10,
+            "salary": monthlyIncome,
+            "additionalLoan": 0, // Assuming no additional loans for now
+            "calculationMode": "AMORTIZATION"
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'
+            }
+        });
 
-    // 4. Check Affordability
-    const isAffordable = maxAffordablePrice >= price;
-    const gap = isAffordable ? 0 : price - maxAffordablePrice;
-
-    return {
-        isAffordable,
-        maxAffordablePrice,
-        maxMonthlyPayment,
-        gap,
-        details: {
-            maxLoan,
-            equity: totalEquity,
-            income: monthlyIncome,
-            debts: monthlyDebts
+        return response.data;
+    } catch (error) {
+        console.error("Interhyp API Error:", error.message);
+        if (error.response) {
+            console.error("Interhyp API Status:", error.response.status);
+            console.error("Interhyp API Data:", JSON.stringify(error.response.data));
         }
-    };
+        return null;
+    }
 };
 
 // API Endpoints
@@ -91,7 +94,7 @@ app.get('/api/properties', async (req, res) => {
         let apiResults = [];
         let total = 0;
 
-        // Helper to fetch from API
+        // Helper to fetch from ThinkImmo API
         const fetchFromApi = async (searchLocation) => {
             try {
                 const response = await axios.post('https://thinkimmo-api.mgraetz.de/thinkimmo', {
@@ -153,7 +156,7 @@ app.get('/api/properties', async (req, res) => {
                 floor: item.floor || 0
             }));
         } else {
-            // Fallback to local properties if API fails completely
+            // Fallback to local properties
             let results = properties;
             // Filtering
             if (maxPrice) results = results.filter(p => p.p <= parseInt(maxPrice));
@@ -176,49 +179,67 @@ app.get('/api/properties', async (req, res) => {
             }));
         }
 
-        // Apply filters (API might not support all, or we mixed sources)
+        // Apply filters
         if (maxPrice) mappedResults = mappedResults.filter(p => p.buyingPrice <= parseInt(maxPrice));
         if (minPrice) mappedResults = mappedResults.filter(p => p.buyingPrice >= parseInt(minPrice));
         if (rooms) mappedResults = mappedResults.filter(p => p.rooms >= parseFloat(rooms));
         if (size) mappedResults = mappedResults.filter(p => p.squareMeter >= parseFloat(size));
 
-
-        // Affordability Logic & Sorting
+        // Affordability Logic
         let affordabilityOptions = null;
+        let maxAffordablePrice = 0;
+        let budgetDetails = null;
 
-        if (income || equity) { // Only if financial data is present
+        if (income || equity) {
+            const buyingPowerData = await fetchMaxBuyingPower(income, equity, debts);
+
+            if (buyingPowerData && buyingPowerData.scoringResult) {
+                maxAffordablePrice = buyingPowerData.scoringResult.priceBuilding;
+                budgetDetails = buyingPowerData;
+            } else {
+                // Fallback to simple calculation if API fails
+                const monthlyIncome = parseFloat(income) || 0;
+                const monthlyDebts = parseFloat(debts) || 0;
+                const totalEquity = parseFloat(equity) || 0;
+                const maxMonthlyPayment = (monthlyIncome - monthlyDebts) * 0.35;
+                const maxLoan = (maxMonthlyPayment * 12) / 0.055;
+                maxAffordablePrice = maxLoan + totalEquity;
+            }
+
             mappedResults = mappedResults.map(item => {
-                const affordability = calculateAffordability(income, equity, debts, item.buyingPrice);
-                return { ...item, affordability };
+                const isAffordable = maxAffordablePrice >= item.buyingPrice;
+                const gap = isAffordable ? 0 : item.buyingPrice - maxAffordablePrice;
+                return {
+                    ...item,
+                    affordability: {
+                        isAffordable,
+                        maxAffordablePrice,
+                        gap
+                    }
+                };
             });
 
-            // Sort: Affordable first, then by price ascending (cheaper is "better matching" for budget)
+            // Sort
             mappedResults.sort((a, b) => {
                 if (a.affordability.isAffordable && !b.affordability.isAffordable) return -1;
                 if (!a.affordability.isAffordable && b.affordability.isAffordable) return 1;
                 return a.buyingPrice - b.buyingPrice;
             });
 
-            // Check if user cannot afford any
+            // Fallback Options
             const affordableCount = mappedResults.filter(r => r.affordability.isAffordable).length;
-
             if (affordableCount === 0 && mappedResults.length > 0) {
-                const cheapest = mappedResults[0]; // Already sorted by price ascending
+                const cheapest = mappedResults[0];
                 const gap = cheapest.affordability.gap;
-
-                // Option 1: Missing budget analysis
-                const futureCost = cheapest.buyingPrice * Math.pow(1.03, 5); // 3% inflation, 5 years
-
-                // Option 2: Savings plan for children (e.g., 18 years)
+                const futureCost = cheapest.buyingPrice * Math.pow(1.03, 5);
                 const yearsToSave = 18;
                 const futureCostChildren = cheapest.buyingPrice * Math.pow(1.03, yearsToSave);
-                // Simple savings plan: (FutureCost - CurrentEquity) / (Years * 12)
-                // Assuming equity grows? Let's keep it simple.
                 const neededSavings = Math.max(0, futureCostChildren - (parseFloat(equity) || 0));
                 const monthlySavings = neededSavings / (yearsToSave * 12);
 
                 affordabilityOptions = {
                     cheapestPropertyId: cheapest.id,
+                    budgetDetails, // Pass the full Interhyp response
                     option1: {
                         description: "What you are missing today",
                         gap: gap,
@@ -234,6 +255,8 @@ app.get('/api/properties', async (req, res) => {
                         message: `To help your children afford a similar home in ${yearsToSave} years (estimated cost €${Math.round(futureCostChildren).toLocaleString()}), you would need to save approximately €${Math.round(monthlySavings).toLocaleString()} per month.`
                     }
                 };
+            } else if (budgetDetails) {
+                affordabilityOptions = { budgetDetails };
             }
         }
 
@@ -350,32 +373,43 @@ app.post('/api/send-email', async (req, res) => {
 });
 
 // Affordability Calculation Endpoint
-app.post('/api/calculate-affordability', (req, res) => {
+app.post('/api/calculate-affordability', async (req, res) => {
     try {
-        const {
-            income,
-            rent,
-            equity,
-            employmentStatus,
-            age,
-            monthlyDebts,
-            propertyPrice
-        } = req.body;
-
+        const { income, equity, monthlyDebts, propertyPrice } = req.body;
         const price = parseFloat(propertyPrice ? propertyPrice.replace(/[^0-9.-]+/g, "") : 0);
 
-        const result = calculateAffordability(income, equity, monthlyDebts, price);
+        const buyingPowerData = await fetchMaxBuyingPower(income, equity, monthlyDebts);
+        let maxAffordablePrice = 0;
+        let budgetDetails = null;
 
-        // Generate Message
+        if (buyingPowerData && buyingPowerData.scoringResult) {
+            maxAffordablePrice = buyingPowerData.scoringResult.priceBuilding;
+            budgetDetails = buyingPowerData;
+        } else {
+            // Fallback
+            const monthlyIncome = parseFloat(income) || 0;
+            const debts = parseFloat(monthlyDebts) || 0;
+            const totalEquity = parseFloat(equity) || 0;
+            const maxMonthlyPayment = (monthlyIncome - debts) * 0.35;
+            const maxLoan = (maxMonthlyPayment * 12) / 0.055;
+            maxAffordablePrice = maxLoan + totalEquity;
+        }
+
+        const isAffordable = maxAffordablePrice >= price;
+        const gap = isAffordable ? 0 : price - maxAffordablePrice;
+
         let message = "";
-        if (result.isAffordable) {
+        if (isAffordable) {
             message = "Great news! Based on your income and equity, this property is within your budget.";
         } else {
-            message = `This property is a bit above your calculated budget. You would need approximately €${result.gap.toLocaleString(undefined, { maximumFractionDigits: 0 })} more in equity or a higher income to afford it comfortably.`;
+            message = `This property is a bit above your calculated budget. You would need approximately €${gap.toLocaleString(undefined, { maximumFractionDigits: 0 })} more in equity or a higher income to afford it comfortably.`;
         }
 
         res.json({
-            ...result,
+            isAffordable,
+            maxAffordablePrice,
+            gap,
+            budgetDetails,
             message
         });
 
