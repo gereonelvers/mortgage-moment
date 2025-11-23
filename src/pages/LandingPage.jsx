@@ -66,10 +66,10 @@ const LandingPage = () => {
                 }}></div>
                 <div className="container" style={{ position: 'relative', zIndex: 1 }}>
                     <h1 style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', color: 'var(--color-text-main)' }}>
-                        <span style={{ color: 'var(--color-primary)' }}>72 neighbors</span> have bought a home in {location} in the past six months.
+                        <span style={{ color: 'var(--color-primary)' }}>72 neighbors</span> have bought a home in {location} since March.
                     </h1>
                     <p style={{ fontSize: '1.5rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
-                        See if this is right for you.
+                        Is it time for you too?
                     </p>
                     <button onClick={scrollToForm} className="btn btn-primary" style={{ fontSize: '1.25rem', padding: '1rem 2.5rem' }}>
                         Check Affordability
