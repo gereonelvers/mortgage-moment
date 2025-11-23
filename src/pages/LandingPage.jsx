@@ -103,7 +103,7 @@ const LandingPage = () => {
                             maxWidth: '500px',
                             lineHeight: '1.6'
                         }}>
-                            Join <strong>72 neighbors</strong> in {locationInput} who found their Mortgage Moment™ this month. No bank jargon, just straight answers.
+                            Join <strong>72 neighbors</strong> in {initialLocation} who found their Mortgage Moment™ this month. No bank jargon, just straight answers.
                         </p>
 
                         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap' }}>
