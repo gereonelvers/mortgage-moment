@@ -164,8 +164,7 @@ const PropertyDetailPage = () => {
         return <div>Property not found</div>;
     }
 
-    // Mock Fit Score
-    const fitScore = Math.floor(Math.random() * 20) + 80; // 80-99
+
 
     const handleEmail = async () => {
         if (!userProfile.email) {
@@ -503,22 +502,7 @@ const PropertyDetailPage = () => {
                             </p>
                         </div>
 
-                        {/* Mortgage Moment Score */}
-                        <div style={{
-                            background: 'linear-gradient(135deg, #2D3436 0%, #636E72 100%)',
-                            padding: 'var(--spacing-lg)',
-                            borderRadius: 'var(--border-radius)',
-                            color: 'white',
-                            textAlign: 'center'
-                        }}>
-                            <h4 style={{ color: 'white', marginBottom: 'var(--spacing-sm)', opacity: 0.9 }}>Mortgage Moment Score</h4>
-                            <div style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: 'var(--spacing-xs)' }}>
-                                {fitScore}
-                            </div>
-                            <p style={{ fontSize: '0.9rem', margin: 0, opacity: 0.9 }}>
-                                Great match for your budget!
-                            </p>
-                        </div>
+
                     </div>
 
 
