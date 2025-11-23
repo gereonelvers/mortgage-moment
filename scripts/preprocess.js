@@ -11,34 +11,11 @@ const __dirname = path.dirname(__filename);
 // Configuration
 const INPUT_FILE = path.join(__dirname, '../src/data/properties.json');
 const OUTPUT_FILE = path.join(__dirname, '../public/properties.min.json');
-const API_KEY = process.env.VITE_MAPS_API_KEY;
 
-if (!API_KEY) {
-    console.error("VITE_MAPS_API_KEY not found in .env");
-    process.exit(1);
-}
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const geocodeAddress = async (address) => {
-    try {
-        const encodedAddress = encodeURIComponent(address);
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${API_KEY}`;
-        const response = await fetch(url);
-        const data = await response.json();
 
-        if (data.status === 'OK' && data.results.length > 0) {
-            const location = data.results[0].geometry.location;
-            return { lat: location.lat, lng: location.lng };
-        } else {
-            console.warn(`Geocoding failed for "${address}": ${data.status}`);
-            return null;
-        }
-    } catch (error) {
-        console.error(`Error geocoding "${address}":`, error.message);
-        return null;
-    }
-};
 
 const processData = async () => {
     try {
@@ -71,22 +48,10 @@ const processData = async () => {
             let lat = item.address?.latitude;
             let lng = item.address?.longitude;
 
-            // Geocode if missing coords but has address
+            // Skip if missing coords
             if (!lat || !lng) {
-                const addressStr = `${item.address.line}, ${item.address.postcode} ${item.address.city || ''}`;
-                console.log(`Geocoding: ${addressStr}`);
-
-                const coords = await geocodeAddress(addressStr);
-                if (coords) {
-                    lat = coords.lat;
-                    lng = coords.lng;
-                    geocodedCount++;
-                    // Rate limit: 50 requests per second max, let's be safe with 20ms delay
-                    await sleep(100);
-                } else {
-                    skippedCount++;
-                    continue; // Skip if still no coords
-                }
+                skippedCount++;
+                continue;
             }
 
             processedProperties.push({
@@ -105,8 +70,7 @@ const processData = async () => {
         }
 
         console.log(`\nProcessing complete.`);
-        console.log(`Geocoded: ${geocodedCount}`);
-        console.log(`Skipped (failed geocode): ${skippedCount}`);
+        console.log(`Skipped (missing coords): ${skippedCount}`);
         console.log(`Total valid items: ${processedProperties.length}`);
 
         fs.writeFileSync(OUTPUT_FILE, JSON.stringify(processedProperties));

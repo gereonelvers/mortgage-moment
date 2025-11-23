@@ -223,20 +223,8 @@ const MapPage = () => {
                     setBudgetDetails(null); // Clear budget details if not provided by API
                 }
 
-                // Geocode the search location to center the map
-                if (window.google && locationQuery) {
-                    const geocoder = new window.google.maps.Geocoder();
-                    geocoder.geocode({ address: locationQuery }, (results, status) => {
-                        if (status === 'OK' && results[0]) {
-                            setMapCenter(results[0].geometry.location);
-                        } else {
-                            // Fallback: if properties found, center on first property
-                            if (result.data.length > 0 && result.data[0].address) {
-                                setMapCenter({ lat: result.data[0].address.lat, lng: result.data[0].address.lon });
-                            }
-                        }
-                    });
-                } else if (result.data.length > 0 && result.data[0].address) {
+                // Center map on first property if available
+                if (result.data.length > 0 && result.data[0].address) {
                     setMapCenter({ lat: result.data[0].address.lat, lng: result.data[0].address.lon });
                 }
 
