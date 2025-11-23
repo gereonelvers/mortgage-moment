@@ -310,7 +310,7 @@ const MapPage = () => {
 
             <div className="container" style={{ padding: 'var(--spacing-lg) var(--spacing-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
-                    <h2 style={{ margin: 0 }}>Properties in {locationQuery} ({filteredProperties.length})</h2>
+                    <h2 style={{ margin: 0 }}>Homes around {locationQuery} ({filteredProperties.length})</h2>
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                         {filteredProperties.length > MAX_MAP_MARKERS && (
                             <div style={{
