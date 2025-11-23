@@ -9,10 +9,15 @@ In Munich, even high earners have given up on buying a home because they assume 
 ## ✨ User Journey
 
 Mortgage Moment is a physical-to-digital intervention.
+
 *The Trigger*: It starts with a physical demo poster (displayed on our whiteboard) featuring a QR code and the hook "72 neighbors bought here recently."
+
 *The Reality Check*: Users scan the code and enter just three numbers: Net Income, Rent, and Equity. No login required.
+
 *The Calculation*: Using the Interhyp Budget Calculation API, we determine exactly how much property the user can afford based on their income and equity. We compare this potential mortgage payment against their current rent to show the financial impact.
+
 *The Solution*: We display map-based listings fetched via the ThinkInno API that fit the user's calculated budget. If they can't afford Munich, we map out alternative opportunities in high-yield areas like Chemnitz.
+
 *Momo & Summary*: An AI voice assistant (Momo) answers questions about listings. Users can receive a detailed email summary of a property either by clicking the mail button or simply by asking Momo to "send me the info" during the call.
 
 
