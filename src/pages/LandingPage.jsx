@@ -4,7 +4,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 const LandingPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const location = searchParams.get('location') || 'Garching';
+    const initialLocation = searchParams.get('location') || 'Garching';
+    const [locationInput, setLocationInput] = useState(initialLocation);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -28,7 +29,7 @@ const LandingPage = () => {
     const handleSubmit = (e) => {
         e.preventDefault();
         // In a real app, we would save this data
-        navigate(`/map?location=${encodeURIComponent(location)}`, { state: { formData } });
+        navigate(`/map?location=${encodeURIComponent(locationInput)}`, { state: { formData } });
     };
 
     const scrollToForm = () => {
@@ -102,7 +103,7 @@ const LandingPage = () => {
                             maxWidth: '500px',
                             lineHeight: '1.6'
                         }}>
-                            Join <strong>72 neighbors</strong> in {location} who found their Mortgage Moment™ this month. No bank jargon, just straight answers.
+                            Join <strong>72 neighbors</strong> in {locationInput} who found their Mortgage Moment™ this month. No bank jargon, just straight answers.
                         </p>
 
                         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -164,6 +165,21 @@ const LandingPage = () => {
                                         required
                                         value={formData.email}
                                         onChange={handleChange}
+                                        style={{ background: '#F8F9FA' }}
+                                    />
+                                </div>
+
+                                <div className="input-group">
+                                    <label className="input-label" htmlFor="location">Where do you want to buy?</label>
+                                    <input
+                                        type="text"
+                                        id="location"
+                                        name="location"
+                                        className="input-field"
+                                        placeholder="e.g. München"
+                                        required
+                                        value={locationInput}
+                                        onChange={(e) => setLocationInput(e.target.value)}
                                         style={{ background: '#F8F9FA' }}
                                     />
                                 </div>
