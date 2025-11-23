@@ -46,9 +46,25 @@ const LandingPage = () => {
                 flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
-                background: 'linear-gradient(135deg, #F8F9FA 0%, #FFFFFF 100%)'
+                position: 'relative',
+                background: 'linear-gradient(135deg, #F8F9FA 0%, #FFFFFF 100%)',
+                overflow: 'hidden'
             }}>
-                <div className="container">
+                {/* Background Image Overlay */}
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundImage: 'url(https://media.istockphoto.com/id/1481867504/photo/love-new-house-and-family-in-their-backyard-together-looking-at-their-property-or-luxury-real.jpg?s=612x612&w=0&k=20&c=rgsZJyigj4mEA51QJVuArpwOusTU9oWNo3Y4iw_iAYk=)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    opacity: 0.08,
+                    zIndex: 0
+                }}></div>
+                <div className="container" style={{ position: 'relative', zIndex: 1 }}>
                     <h1 style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', color: 'var(--color-text-main)' }}>
                         <span style={{ color: 'var(--color-primary)' }}>72 neighbors</span> have bought a home in {location} in the past six months.
                     </h1>
