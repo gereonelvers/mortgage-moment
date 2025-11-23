@@ -195,7 +195,9 @@ const PropertyDetailPage = () => {
                 propertyPrice: displayProperty.buyingPrice.toLocaleString(),
                 propertyImage: displayProperty.images && displayProperty.images.length > 0 ? displayProperty.images[0].originalUrl : null,
                 coachData: coachData,
-                isVoiceCall: true // Assume true if triggered via this flow, or we can make it dynamic
+                isVoiceCall: true, // Assume true if triggered via this flow, or we can make it dynamic
+                userProfile: userProfile, // Send the user's profile data
+                affordabilityData: affordabilityResult // Send the affordability calculation result
             });
             console.log('Email sent successfully! Response:', response);
             setEmailSent(true);

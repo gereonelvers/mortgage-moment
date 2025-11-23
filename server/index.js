@@ -345,7 +345,7 @@ app.get('/api/properties', async (req, res) => {
     }
 });
 
-const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage, coachData, isVoiceCall }) => {
+const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage, coachData, isVoiceCall, userProfile, affordabilityData }) => {
     return `
 <!DOCTYPE html>
 <html>
@@ -388,6 +388,41 @@ const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAdd
                 <div class="price">€${propertyPrice}</div>
             </div>
 
+            ${userProfile || affordabilityData ? `
+                <div class="coach-section">
+                    <h2 style="color: #2c3e50;">📊 Your Calculation Details</h2>
+                    
+                    ${userProfile ? `
+                    <div class="coach-card" style="border-left-color: #3498db; background: #f0f9ff;">
+                        <h3 style="margin-top: 0; color: #2980b9;">Your Financial Profile</h3>
+                        <p style="margin: 5px 0;">Monthly Net Income: <strong>€${userProfile.income?.toLocaleString()}</strong></p>
+                        <p style="margin: 5px 0;">Available Equity: <strong>€${userProfile.equity?.toLocaleString()}</strong></p>
+                        ${userProfile.rent ? `<p style="margin: 5px 0;">Current Rent: <strong>€${userProfile.rent?.toLocaleString()}</strong></p>` : ''}
+                        ${userProfile.monthlyDebts ? `<p style="margin: 5px 0;">Monthly Debts: <strong>€${userProfile.monthlyDebts?.toLocaleString()}</strong></p>` : ''}
+                        ${userProfile.employmentStatus ? `<p style="margin: 5px 0;">Employment: <strong>${userProfile.employmentStatus}</strong></p>` : ''}
+                        ${userProfile.age ? `<p style="margin: 5px 0;">Age: <strong>${userProfile.age}</strong></p>` : ''}
+                    </div>
+                    ` : ''}
+                    
+                    ${affordabilityData ? `
+                    <div class="coach-card" style="border-left-color: ${affordabilityData.isAffordable ? '#27ae60' : '#e74c3c'}; background: ${affordabilityData.isAffordable ? '#f0fff4' : '#fff5f5'};">
+                        <h3 style="margin-top: 0; color: ${affordabilityData.isAffordable ? '#27ae60' : '#c0392b'};">
+                            ${affordabilityData.isAffordable ? '✅ This Property is Affordable!' : '⚠️ Affordability Assessment'}
+                        </h3>
+                        <p style="margin: 5px 0;">Your Max Budget: <strong>€${affordabilityData.maxAffordablePrice?.toLocaleString()}</strong></p>
+                        <p style="margin: 5px 0;">Property Price: <strong>€${propertyPrice}</strong></p>
+                        ${!affordabilityData.isAffordable && affordabilityData.gap ? `<p style="margin: 5px 0; color: #e74c3c;">Shortfall: <strong>€${affordabilityData.gap?.toLocaleString()}</strong></p>` : ''}
+                        ${affordabilityData.budgetDetails?.scoringResult ? `
+                            <hr style="border: none; border-top: 1px solid #ddd; margin: 15px 0;" />
+                            <p style="margin: 5px 0;">Estimated Monthly Payment: <strong>€${affordabilityData.budgetDetails.scoringResult.monthlyPayment?.toLocaleString()}</strong></p>
+                            <p style="margin: 5px 0;">Max Loan Amount: <strong>€${affordabilityData.budgetDetails.scoringResult.loanAmount?.toLocaleString()}</strong></p>
+                            <p style="margin: 5px 0; font-size: 0.9em; color: #666;">Interest Rate: ${affordabilityData.budgetDetails.scoringResult.effectiveInterest}%</p>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                </div>
+            ` : ''}
+
             ${coachData ? `
                 <div class="coach-section">
                     <h2 style="color: #2c3e50;">Your Affordability Plan 🏠</h2>
@@ -429,7 +464,7 @@ const generateEmailTemplate = ({ userName, userEmail, propertyTitle, propertyAdd
 };
 
 app.post('/api/send-email', async (req, res) => {
-    const { userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage, coachData, isVoiceCall } = req.body;
+    const { userName, userEmail, propertyTitle, propertyAddress, propertyPrice, propertyImage, coachData, isVoiceCall, userProfile, affordabilityData } = req.body;
 
     if (!userEmail) {
         return res.status(400).json({ message: 'User email is required' });
@@ -443,7 +478,9 @@ app.post('/api/send-email', async (req, res) => {
         propertyPrice,
         propertyImage,
         coachData,
-        isVoiceCall
+        isVoiceCall,
+        userProfile,
+        affordabilityData
     });
 
     try {
